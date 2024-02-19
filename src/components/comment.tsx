@@ -4,6 +4,7 @@ import { getCommentData } from "@/api/getCommentData";
 import { useEffect, useState } from "react";
 import Loading from "./ui/loading";
 import { Button } from "./ui/button";
+import convertTagstoTextExceptLinks from "@/lib/convert-tags";
 
 interface CommentProps {
     commentId: number;
@@ -38,9 +39,9 @@ export default function Comment({ commentId, depth }: CommentProps) {
     return (
         <div>
             {comment && (
-                <div>
+                <div className="text-wrap">
                     <div className="text-base font-semibold text-primary">{comment.by}</div>
-                    <div className="text-lg font-light py-3" dangerouslySetInnerHTML={{ __html: comment.text }} />
+                    <div className="text-lg font-light py-3 comment" dangerouslySetInnerHTML={{ __html: convertTagstoTextExceptLinks(comment.text) }} />
                     {comment.kids && comment.kids.length > 0 && (
                         <div className="ml-5">
                             <Button variant="ghost" className="pb-2 pt-1" onClick={() => setShowMore(!showMore)}>

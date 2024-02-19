@@ -1,5 +1,6 @@
 "use client"
 
+import convertTagstoTextExceptLinks from "@/lib/convert-tags";
 import { getArticleData } from "@/api/getArticleData";
 import Comment from "@/components/comment";
 import { Button } from "@/components/ui/button";
@@ -49,7 +50,7 @@ export default function Article({ params }: { params: { slug: string } }) {
                 <div className="text-3xl font-medium">{article.title}</div>
                 <div className="text-sm font-bold">by {article.by}</div>
                 {article.time && <div className="text-sm font-light">Published on {new Date(article.time * 1000).toLocaleString()}</div>}
-                {article.text && <div className="text-sm font-light">{article.text}</div>}
+                {article.text && <div className="text-sm font-light">{convertTagstoTextExceptLinks(article.text)}</div>}
                 {article.url && <Button className="text-lg" variant="link" onClick={() => window.open(article.url, '_blank')}>Read Article →</Button>}
                 {article.score && <div className="text-sm font-light">{article.score} points</div>}
                 <div>
@@ -63,12 +64,12 @@ export default function Article({ params }: { params: { slug: string } }) {
 
             {article.kids && article.kids?.length > 0 && <div>
 
-                <div className="px-40">
+                <div className="px-10 md:px-40">
                     <div className="py-10 text-2xl font-semibold">
                         Comments
                     </div>
 
-                    <div className="flex flex-col">
+                    <div className="flex flex-col ">
                         {
                             article.kids?.map((kid: number) => {
                                 return (
