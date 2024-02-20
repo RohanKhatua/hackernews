@@ -19,7 +19,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={`${GeistMono.className} no-scrollbar`}>
+      <body className={`${GeistMono.className}`}>
         <ThemeProvider
           attribute="class"
           defaultTheme="dark"

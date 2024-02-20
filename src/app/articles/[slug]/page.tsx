@@ -54,9 +54,11 @@ export default function Article({ params }: { params: { slug: string } }) {
                 {article.url && <Button className="text-lg" variant="link" onClick={() => window.open(article.url, '_blank')}>Read Article →</Button>}
                 {article.score && <div className="text-sm font-light">{article.score} points</div>}
                 <div>
-                    <Button className="w-fit" variant="outline">
-                        <Link href="/">Go Back</Link>
-                    </Button>
+                    <Link href="/">
+                        <Button className="w-fit" variant="outline">
+                            Go Back
+                        </Button>
+                    </Link>
                 </div>
             </div>
 
