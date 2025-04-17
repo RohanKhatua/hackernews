@@ -1,35 +1,43 @@
-"use client"
+"use client";
 
-import { useState, useEffect } from "react"
-import { Header } from "@/components/header"
-import { StoryItem } from "@/components/story-item"
-import { Comment } from "@/components/comment"
-import { Skeleton } from "@/components/ui/skeleton"
+import { useState, useEffect, use } from "react";
+import { Header } from "@/components/header";
+import { StoryItem } from "@/components/story-item";
+import { Comment } from "@/components/comment";
+import { Skeleton } from "@/components/ui/skeleton";
 
-export default function ItemPage({ params }: { params: { id: string } }) {
-  const [story, setStory] = useState<any>(null)
-  const [loading, setLoading] = useState(true)
+export default function ItemPage({
+  params,
+}: {
+  params: { id: string } | Promise<{ id: string }>
+}) {
+  const resolvedParams = use(params);
+  const { id } = resolvedParams;
+  const [story, setStory] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchStory = async () => {
       try {
-        const response = await fetch(`https://hacker-news.firebaseio.com/v0/item/${params.id}.json`)
-        const data = await response.json()
-        setStory(data)
+        const response = await fetch(
+          `https://hacker-news.firebaseio.com/v0/item/${id}.json`
+        );
+        const data = await response.json();
+        setStory(data);
       } catch (error) {
-        console.error("Error fetching story:", error)
+        console.error("Error fetching story:", error);
       } finally {
-        setLoading(false)
+        setLoading(false);
       }
-    }
+    };
 
-    fetchStory()
-  }, [params.id])
+    fetchStory();
+  }, [id]);
 
   return (
     <div className="min-h-screen flex flex-col">
       <Header />
-      <main className="flex-1 container max-w-4xl py-4 sm:py-6 px-4 sm:px-6">
+      <main className="flex-1 container max-w-4xl py-4 sm:py-6 px-4 sm:px-6 overflow-x-hidden">
         {loading ? (
           <div>
             <Skeleton className="h-6 w-3/4 mb-4" />
@@ -64,7 +72,8 @@ export default function ItemPage({ params }: { params: { id: string } }) {
             )}
 
             <h2 className="text-lg font-medium mt-6 sm:mt-8 mb-4">
-              {story.descendants || 0} {story.descendants === 1 ? "comment" : "comments"}
+              {story.descendants || 0}{" "}
+              {story.descendants === 1 ? "comment" : "comments"}
             </h2>
 
             {story.kids && story.kids.length > 0 ? (
@@ -82,5 +91,5 @@ export default function ItemPage({ params }: { params: { id: string } }) {
         )}
       </main>
     </div>
-  )
+  );
 }

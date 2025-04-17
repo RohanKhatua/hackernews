@@ -1,11 +1,25 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import Link from "next/link"
 import { formatDistanceToNow } from "date-fns"
 import { ExternalLink } from "lucide-react"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Button } from "@/components/ui/button"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+
+// Define type for sort options
+type SortOption = {
+  label: string
+  value: string
+  apiParam: string
+}
 
 interface SearchResultsProps {
   query: string
@@ -18,6 +32,29 @@ export function SearchResults({ query, type }: SearchResultsProps) {
   const [error, setError] = useState<string | null>(null)
   const [page, setPage] = useState(0)
   const [hasMore, setHasMore] = useState(true)
+  const [sortBy, setSortBy] = useState<string>("default")
+
+  // Memoize sort options to prevent recreating on every render
+  const sortOptions = useMemo<SortOption[]>(() => 
+    type === "stories" 
+      ? [
+          { label: "Relevance", value: "default", apiParam: "" },
+          { label: "Date", value: "date", apiParam: "byDate" },
+          { label: "Points", value: "points", apiParam: "points" },
+          { label: "Comments", value: "comments", apiParam: "num_comments" },
+        ]
+      : [
+          { label: "Relevance", value: "default", apiParam: "" },
+          { label: "Date", value: "date", apiParam: "" }, // Date is already default for comments
+        ],
+    [type] // Only recalculate when type changes
+  );
+
+  useEffect(() => {
+    // Reset page when sort changes
+    setPage(0);
+    setResults([]);
+  }, [sortBy]);
 
   useEffect(() => {
     const fetchResults = async () => {
@@ -27,13 +64,25 @@ export function SearchResults({ query, type }: SearchResultsProps) {
       setError(null)
 
       try {
-        // Use Algolia's Hacker News API for search
-        const endpoint =
-          type === "stories"
-            ? `https://hn.algolia.com/api/v1/search?query=${encodeURIComponent(query)}&page=${page}&hitsPerPage=20`
-            : `https://hn.algolia.com/api/v1/search_by_date?tags=comment&query=${encodeURIComponent(query)}&page=${page}&hitsPerPage=20`
+        // Get current sort option
+        const currentSort = sortOptions.find(option => option.value === sortBy);
+        
+        // Base endpoints
+        let endpoint = "";
+        
+        if (type === "stories") {
+          endpoint = currentSort?.value === "date" 
+            ? `https://hn.algolia.com/api/v1/search_by_date?query=${encodeURIComponent(query)}&tags=story`
+            : `https://hn.algolia.com/api/v1/search?query=${encodeURIComponent(query)}`;
+        } else {
+          // For comments, we always use search_by_date
+          endpoint = `https://hn.algolia.com/api/v1/search_by_date?tags=comment&query=${encodeURIComponent(query)}`;
+        }
+        
+        // Add pagination
+        endpoint += `&page=${page}&hitsPerPage=20`;
 
-        const response = await fetch(endpoint)
+        const response = await fetch(endpoint);
 
         if (!response.ok) {
           throw new Error("Failed to fetch search results")
@@ -41,10 +90,19 @@ export function SearchResults({ query, type }: SearchResultsProps) {
 
         const data = await response.json()
 
+        let fetchedResults = data.hits;
+
+        // Client-side sorting for points and comments
+        if (sortBy === "points") {
+          fetchedResults = fetchedResults.sort((a, b) => (b.points || 0) - (a.points || 0));
+        } else if (sortBy === "comments") {
+          fetchedResults = fetchedResults.sort((a, b) => (b.num_comments || 0) - (a.num_comments || 0));
+        }
+
         if (page === 0) {
-          setResults(data.hits)
+          setResults(fetchedResults)
         } else {
-          setResults((prev) => [...prev, ...data.hits])
+          setResults((prev) => [...prev, ...fetchedResults])
         }
 
         setHasMore(data.hits.length === 20 && page < data.nbPages - 1)
@@ -57,50 +115,64 @@ export function SearchResults({ query, type }: SearchResultsProps) {
     }
 
     fetchResults()
-  }, [query, type, page])
+  }, [query, type, page, sortBy])
 
   const loadMore = () => {
     setPage((prev) => prev + 1)
   }
 
+  const handleSortChange = (value: string) => {
+    setSortBy(value);
+  };
+
   if (error) {
     return <div className="text-destructive py-4">{error}</div>
   }
 
-  if (loading && page === 0) {
-    return (
-      <div className="space-y-4">
-        {Array.from({ length: 5 }).map((_, i) => (
-          <div key={i} className="py-3 border-b border-border/40 last:border-0">
-            <Skeleton className="h-5 w-full mb-2" />
-            <Skeleton className="h-3 w-3/4" />
-          </div>
-        ))}
-      </div>
-    )
-  }
-
-  if (results.length === 0 && !loading) {
-    return (
-      <div className="py-8 text-center">
-        <p className="text-muted-foreground">
-          No {type} found for "{query}"
-        </p>
-      </div>
-    )
-  }
-
   return (
     <div>
-      <div className="space-y-0">
-        {results.map((item) =>
-          type === "stories" ? (
-            <StoryResult key={item.objectID} item={item} />
-          ) : (
-            <CommentResult key={item.objectID} item={item} />
-          ),
-        )}
+      {/* Sort selector */}
+      <div className="mb-4 flex justify-end">
+        <Select value={sortBy} onValueChange={handleSortChange}>
+          <SelectTrigger className="w-[180px]">
+            <SelectValue placeholder="Sort by" />
+          </SelectTrigger>
+          <SelectContent>
+            {sortOptions.map((option) => (
+              <SelectItem key={option.value} value={option.value}>
+                {option.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
+
+      {loading && page === 0 ? (
+        <div className="space-y-4">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <div key={i} className="py-3 border-b border-border/40 last:border-0">
+              <Skeleton className="h-5 w-full mb-2" />
+              <Skeleton className="h-3 w-3/4" />
+            </div>
+          ))}
+        </div>
+      ) : results.length === 0 && !loading ? (
+        <div className="py-8 text-center">
+          <p className="text-muted-foreground">
+            No {type} found for "{query}"
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-0">
+          {results.map((item) =>
+            type === "stories" ? (
+              <StoryResult key={item.objectID} item={item} />
+            ) : (
+              <CommentResult key={item.objectID} item={item} />
+            ),
+          )}
+        </div>
+      )}
 
       {loading && page > 0 && (
         <div className="py-4 text-center">
