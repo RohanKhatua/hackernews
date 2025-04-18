@@ -1,9 +1,6 @@
 import { NextResponse } from "next/server";
-import {
-	fetchTopStories,
-	formatNewsletter,
-	sendEmail,
-} from "../../../lib/server-utils";
+import { fetchTopStories, formatNewsletter } from "../../../lib/server-utils";
+import { sendEmail } from "../../../lib/email-utils";
 
 export async function GET() {
 	try {

@@ -2,8 +2,8 @@ import * as cron from "node-cron";
 import {
 	fetchTopStories,
 	formatNewsletter,
-	sendEmail,
 } from "../lib/server-utils";
+import { sendEmail } from "../lib/email-utils";
 import dotenv from "dotenv";
 
 // Load environment variables
