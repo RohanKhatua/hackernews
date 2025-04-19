@@ -7,9 +7,33 @@ import { ThemeProvider } from "@/components/theme-provider";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-	title: "Hacker News Clone",
-	description: "A Hacker News clone built with Next.js and shadcn/ui",
-	generator: "v0.dev",
+	title: "Hacker News - But Better",
+	description: "A modern Hacker News built with Next.js and shadcn/ui",
+	generator: "Next.js",
+	applicationName: "Hacker News - But Better",
+	referrer: "origin-when-cross-origin",
+	keywords: [
+		"Hacker News",
+		"HN",
+		"news",
+		"technology",
+		"programming",
+		"software",
+		"development",
+		"web",
+		"web development",
+		"shadcn",
+		"ui",
+		"OpenAI",
+	],
+	authors: [
+		{
+			name: "Rohan Khatua",
+			url: "https://rohankhatua.dev",
+		},
+	],
+	creator: "Rohan Khatua",
+	publisher: "Rohan Khatua",
 };
 
 export default function RootLayout({
