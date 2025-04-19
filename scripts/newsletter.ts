@@ -1,8 +1,4 @@
-import * as cron from "node-cron";
-import {
-	fetchTopStories,
-	formatNewsletter,
-} from "../lib/server-utils";
+import { fetchTopStories, formatNewsletter } from "../lib/server-utils";
 import { sendEmail } from "../lib/email-utils";
 import dotenv from "dotenv";
 
@@ -42,39 +38,16 @@ async function sendDailyNewsletter() {
 	}
 }
 
-// Function to run the newsletter once
+// Export the send function for use in API routes
 export async function runNewsletter() {
 	await sendDailyNewsletter();
 }
 
-// Function to schedule the newsletter
-export function scheduleNewsletter() {
-	// Schedule to run at 7:00 AM every day
-	// Cron format: minute hour day-of-month month day-of-week
-	cron.schedule("0 7 * * *", async () => {
-		console.log("Running scheduled newsletter job...");
-		await sendDailyNewsletter();
-	});
-
-	console.log("Newsletter scheduled to run at 7:00 AM daily");
-}
-
 // If this script is run directly (not imported)
 if (require.main === module) {
-	// Check for command line arguments
-	const args = process.argv.slice(2);
-
-	if (args.includes("--now")) {
-		// Run immediately
-		runNewsletter().catch(console.error);
-	} else if (args.includes("--schedule")) {
-		// Schedule daily
-		scheduleNewsletter();
-	} else {
-		console.log("Usage: bun scripts/newsletter.ts [--now|--schedule]");
-		console.log("  --now      : Run the newsletter once immediately");
-		console.log(
-			"  --schedule : Schedule the newsletter to run daily at 7:00 AM"
-		);
-	}
+	// Run the newsletter once
+	runNewsletter().catch(console.error);
+	console.log(
+		"For automated daily sending, use the GitHub Actions workflow configured at 7:00 AM IST"
+	);
 }
