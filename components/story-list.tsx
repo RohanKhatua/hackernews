@@ -21,18 +21,27 @@ export function StoryList({ type = "top", limit = 30 }: StoryListProps) {
 		const fetchStoryIds = async () => {
 			setLoading(true);
 			try {
-				const endpoint =
-					type === "new"
-						? "newstories"
-						: type === "best"
-						? "beststories"
-						: type === "ask"
-						? "askstories"
-						: type === "show"
-						? "showstories"
-						: type === "job"
-						? "jobstories"
-						: "topstories";
+				let endpoint: string;
+				switch (type) {
+					case "new":
+						endpoint = "newstories";
+						break;
+					case "best":
+						endpoint = "beststories";
+						break;
+					case "ask":
+						endpoint = "askstories";
+						break;
+					case "show":
+						endpoint = "showstories";
+						break;
+					case "job":
+						endpoint = "jobstories";
+						break;
+					default:
+						endpoint = "topstories";
+						break;
+				}
 
 				const response = await fetch(
 					`https://hacker-news.firebaseio.com/v0/${endpoint}.json`
