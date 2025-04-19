@@ -32,7 +32,7 @@ export function StoryItem({
 		<div className="py-3 border-b border-border/40 last:border-0">
 			<div className="flex items-start">
 				{index !== undefined && (
-					<span className="text-muted-foreground mr-2 mt-0.5 text-sm w-5 sm:w-6 text-right flex-shrink-0">
+					<span className="text-muted-foreground mr-2 mt-0.5 text-base w-5 sm:w-6 text-right flex-shrink-0">
 						{index}.
 					</span>
 				)}
@@ -40,7 +40,7 @@ export function StoryItem({
 					<div className="flex flex-wrap items-center gap-2">
 						<Link
 							href={url || `/item/${id}`}
-							className="text-foreground font-medium text-sm sm:text-base break-words hover:text-primary"
+							className="text-foreground font-medium text-base sm:text-lg break-words hover:text-primary"
 							target={url ? "_blank" : undefined}
 							rel={url ? "noopener noreferrer" : undefined}>
 							{title}
@@ -48,7 +48,7 @@ export function StoryItem({
 						{url && (
 							<Link
 								href={url}
-								className="text-xs text-muted-foreground flex items-center gap-1 hover:text-primary"
+								className="text-sm text-muted-foreground flex items-center gap-1 hover:text-primary"
 								target="_blank"
 								rel="noopener noreferrer">
 								<ExternalLink className="h-3 w-3 flex-shrink-0" />
@@ -58,7 +58,7 @@ export function StoryItem({
 							</Link>
 						)}
 					</div>
-					<div className="mt-1 text-xs text-muted-foreground flex flex-wrap items-center">
+					<div className="mt-1 text-sm text-muted-foreground flex flex-wrap items-center">
 						<span>{score} points</span>
 						<span className="mx-1">•</span>
 						<Link href={`/user/${by}`} className="hover:text-primary">

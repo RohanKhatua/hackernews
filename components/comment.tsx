@@ -62,12 +62,12 @@ export function Comment({ id, level = 0 }: CommentProps) {
 	const nestingClass = shouldNest
 		? `pl-2 sm:pl-4 border-l border-border/40 ${
 				level > 0 ? "ml-2 sm:ml-4 mt-4" : "mt-6"
-		  }`
+			}`
 		: "mt-4 pt-2 border-t border-border/40";
 
 	return (
 		<div className={nestingClass}>
-			<div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
+			<div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
 				<Button
 					variant="ghost"
 					size="icon"
@@ -90,7 +90,7 @@ export function Comment({ id, level = 0 }: CommentProps) {
 			{expanded && (
 				<>
 					<div
-						className="text-sm mt-1 pl-5 prose prose-invert max-w-none prose-p:my-1 prose-a:text-primary break-words overflow-x-auto"
+						className="text-base mt-1 pl-5 prose prose-invert max-w-none prose-p:my-1 prose-a:text-primary break-words overflow-x-auto"
 						dangerouslySetInnerHTML={{ __html: comment.text || "" }}
 					/>
 
