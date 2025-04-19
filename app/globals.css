@@ -4,58 +4,85 @@
 
 @layer base {
 	:root {
-		--background: 0 0% 98%; /* Very light gray instead of pure white */
-		--foreground: 20 14.3% 15%; /* Darker than black for softer contrast */
-		--card: 0 0% 100%;
-		--card-foreground: 20 14.3% 15%;
-		--popover: 0 0% 100%;
-		--popover-foreground: 20 14.3% 15%;
-		--primary: 24.6 95% 53.1%;
-		--primary-foreground: 60 9.1% 97.8%;
-		--secondary: 60 4.8% 92%; /* Slightly darker for subtle contrast */
-		--secondary-foreground: 24 9.8% 15%;
-		--muted: 60 4.8% 92%;
-		--muted-foreground: 25 5.3% 50%; /* Less contrast for muted text */
-		--accent: 60 4.8% 92%;
-		--accent-foreground: 24 9.8% 15%;
-		--destructive: 0 72% 55%; /* Softer red */
-		--destructive-foreground: 60 9.1% 97.8%;
-		--border: 20 5.9% 85%; /* Lighter border */
-		--input: 20 5.9% 90%;
-		--ring: 24.6 95% 53.1%;
-		--radius: 1rem;
-		--chart-1: 12 76% 61%;
-		--chart-2: 173 58% 39%;
-		--chart-3: 197 37% 24%;
-		--chart-4: 43 74% 66%;
-		--chart-5: 27 87% 67%;
+		/* Slightly warmer background for reduced eye strain */
+		--background: 40 30% 98%;
+		/* Softer than black for better contrast ratio */
+		--foreground: 220 10% 20%;
+
+		--card: 40 30% 99%;
+		--card-foreground: 220 10% 20%;
+
+		--popover: 40 30% 99%;
+		--popover-foreground: 220 10% 20%;
+
+		/* Warm accent color - not too vibrant */
+		--primary: 24 75% 55%;
+		--primary-foreground: 60 30% 98%;
+
+		/* Very subtle secondary tones */
+		--secondary: 40 20% 92%;
+		--secondary-foreground: 220 10% 20%;
+
+		--muted: 40 20% 92%;
+		--muted-foreground: 220 10% 45%;
+
+		--accent: 40 20% 92%;
+		--accent-foreground: 220 10% 20%;
+
+		--destructive: 0 65% 55%;
+		--destructive-foreground: 60 30% 98%;
+
+		--border: 220 15% 85%;
+		--input: 220 15% 90%;
+		--ring: 24 75% 55%;
+
+		--radius: 0.5rem;
+
+		/* Chart colors with good contrast */
+		--chart-1: 24 75% 55%;
+		--chart-2: 200 65% 45%;
+		--chart-3: 170 50% 40%;
+		--chart-4: 130 50% 45%;
+		--chart-5: 280 40% 50%;
 	}
 
 	.dark {
-		--background: 240 5% 12%; /* Dark gray instead of pure black */
-		--foreground: 60 9.1% 92%; /* Off-white instead of pure white */
-		--card: 240 5% 15%;
-		--card-foreground: 60 9.1% 92%;
-		--popover: 240 5% 15%;
-		--popover-foreground: 60 9.1% 92%;
-		--primary: 20.5 90.2% 48.2%;
-		--primary-foreground: 60 9.1% 97.8%;
-		--secondary: 240 5% 20%; /* Softer contrast */
-		--secondary-foreground: 60 9.1% 92%;
-		--muted: 240 5% 20%;
-		--muted-foreground: 240 3% 65%; /* Brighter muted text */
-		--accent: 240 5% 20%;
-		--accent-foreground: 60 9.1% 92%;
-		--destructive: 0 72% 55%; /* Consistent with light mode */
-		--destructive-foreground: 60 9.1% 97.8%;
-		--border: 240 5% 25%; /* More visible borders */
-		--input: 240 5% 20%;
-		--ring: 20.5 90.2% 48.2%;
-		--chart-1: 220 70% 60%; /* Brighter chart colors */
-		--chart-2: 160 60% 55%;
-		--chart-3: 30 80% 65%;
-		--chart-4: 280 65% 70%;
-		--chart-5: 340 75% 65%;
+		/* Softer dark background - not pure black */
+		--background: 220 15% 13%;
+		/* Warm off-white - not harsh white */
+		--foreground: 40 15% 90%;
+
+		--card: 220 15% 16%;
+		--card-foreground: 40 15% 90%;
+
+		--popover: 220 15% 16%;
+		--popover-foreground: 40 15% 90%;
+
+		/* Warmer primary that's visible but not harsh */
+		--primary: 20 80% 60%;
+		--primary-foreground: 40 15% 98%;
+
+		--secondary: 220 15% 22%;
+		--secondary-foreground: 40 15% 90%;
+
+		--muted: 220 15% 22%;
+		--muted-foreground: 40 10% 70%;
+
+		--accent: 220 15% 22%;
+		--accent-foreground: 40 15% 90%;
+
+		--destructive: 0 65% 60%;
+		--destructive-foreground: 40 15% 98%;
+
+		--border: 220 15% 25%;
+		--input: 220 15% 22%;
+		--ring: 20 80% 60%;
+
+		--chart-1: 20 80% 60%;
+		--chart-2: 190 70% 60%;
+		--chart-3: 150 60% 50%;
+		--chart-4: 100 50% 60%;
+		--chart-5: 320 60% 60%;
 	}
 }
 
@@ -63,20 +90,44 @@
 	* {
 		@apply border-border;
 	}
+
 	body {
 		@apply bg-background text-foreground;
 		font-feature-settings:
 			"rlig" 1,
-			"calt" 1; /* Improves text rendering */
-		font-size: 16px; /* Base font size */
+			"calt" 1,
+			"kern" 1;
+		text-rendering: optimizeLegibility;
 	}
 
-	/* Improved readability for comment text */
-	.prose {
-		@apply text-base leading-relaxed;
+	/* Typography optimizations for readability */
+	h1,
+	h2,
+	h3,
+	h4,
+	h5,
+	h6 {
+		@apply font-medium tracking-tight;
+		line-height: 1.2;
 	}
 
-	/* Enhanced text sizing for mobile and desktop */
+	p,
+	li,
+	blockquote {
+		@apply text-base leading-relaxed md:text-lg md:leading-relaxed;
+	}
+
+	/* Code formatting */
+	code,
+	pre {
+		@apply font-mono text-sm md:text-base bg-secondary bg-opacity-50 rounded px-1;
+	}
+
+	pre {
+		@apply p-4 my-6 overflow-x-auto;
+	}
+
+	/* Responsive adjustments */
 	@media (max-width: 640px) {
 		html {
 			font-size: 15px;

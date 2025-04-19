@@ -46,7 +46,7 @@ export function NewsletterForm() {
 	};
 
 	return (
-		<div className="bg-slate-50 dark:bg-slate-900 rounded-lg p-6 my-6">
+		<div className="rounded-lg p-6 my-6">
 			<h2 className="text-xl font-bold mb-2">
 				Subscribe to Daily HN Newsletter
 			</h2>
