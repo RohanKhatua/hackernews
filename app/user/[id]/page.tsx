@@ -4,6 +4,16 @@ import { useState, useEffect, use } from "react";
 import { Header } from "@/components/header";
 import { formatDistanceToNow } from "date-fns";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Card } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
+type UserData = {
+	id: string;
+	created: number;
+	karma: number;
+	about?: string;
+	submitted?: number[];
+};
 
 export default function UserPage({
 	params,
@@ -12,7 +22,7 @@ export default function UserPage({
 }) {
 	const resolvedParams = use(params);
 	const { id } = resolvedParams;
-	const [user, setUser] = useState<any>(null);
+	const [user, setUser] = useState<UserData | null>(null);
 	const [loading, setLoading] = useState(true);
 
 	useEffect(() => {
@@ -34,43 +44,70 @@ export default function UserPage({
 	}, [id]);
 
 	return (
-		<div className="min-h-screen flex flex-col">
+		<div className="min-h-screen flex flex-col bg-background">
 			<Header />
 			<main className="flex-1 container max-w-4xl py-4 sm:py-6 px-4 sm:px-6">
 				{loading ? (
-					<div>
-						<Skeleton className="h-8 w-1/3 mb-4" />
-						<Skeleton className="h-4 w-1/2 mb-2" />
-						<Skeleton className="h-4 w-1/4 mb-2" />
-						<Skeleton className="h-4 w-3/4 mb-2" />
+					<div className="space-y-4">
+						<Skeleton className="h-12 w-1/3 mb-6" />
+						<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+							<Skeleton className="h-40 w-full" />
+							<Skeleton className="h-40 w-full" />
+						</div>
 					</div>
 				) : user ? (
-					<div>
-						<h1 className="text-xl sm:text-2xl font-bold mb-4">{user.id}</h1>
-						<div className="space-y-2 mb-6">
-							<p className="text-sm">
-								<span className="text-muted-foreground">Created:</span>{" "}
-								{formatDistanceToNow(new Date(user.created * 1000), {
-									addSuffix: true,
-								})}
-							</p>
-							<p className="text-sm">
-								<span className="text-muted-foreground">Karma:</span>{" "}
-								{user.karma}
-							</p>
-							{user.about && (
-								<div>
-									<p className="text-sm text-muted-foreground mb-1">About:</p>
+					<div className="space-y-6">
+						<div className="flex flex-col sm:flex-row sm:items-center justify-between">
+							<h1 className="text-2xl sm:text-3xl font-bold">{user.id}</h1>
+							<div className="mt-2 sm:mt-0 px-4 py-1 bg-primary/10 rounded-full text-primary text-sm font-medium">
+								{user.karma} karma
+							</div>
+						</div>
+
+						<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+							<Card className="p-4 sm:p-6">
+								<h2 className="text-xl font-semibold mb-4">Profile Info</h2>
+								<div className="space-y-3">
+									<div className="flex justify-between border-b border-border pb-2">
+										<span className="text-muted-foreground">Username</span>
+										<span className="font-medium">{user.id}</span>
+									</div>
+									<div className="flex justify-between border-b border-border pb-2">
+										<span className="text-muted-foreground">Created</span>
+										<span className="font-medium">
+											{formatDistanceToNow(new Date(user.created * 1000), {
+												addSuffix: true,
+											})}
+										</span>
+									</div>
+									<div className="flex justify-between pb-2">
+										<span className="text-muted-foreground">Submissions</span>
+										<span className="font-medium">
+											{user.submitted?.length || 0}
+										</span>
+									</div>
+								</div>
+							</Card>
+
+							{user.about ? (
+								<Card className="p-4 sm:p-6">
+									<h2 className="text-xl font-semibold mb-4">About</h2>
 									<div
-										className="text-sm p-3 sm:p-4 bg-secondary rounded-md prose prose-invert max-w-none break-words"
+										className="prose prose-sm max-w-none break-words text-foreground"
 										dangerouslySetInnerHTML={{ __html: user.about }}
 									/>
-								</div>
+								</Card>
+							) : (
+								<Card className="p-4 sm:p-6 flex items-center justify-center text-muted-foreground">
+									No about information provided
+								</Card>
 							)}
 						</div>
 					</div>
 				) : (
-					<p className="text-muted-foreground">User not found.</p>
+					<Card className="p-6 text-center">
+						<p className="text-muted-foreground">User not found.</p>
+					</Card>
 				)}
 			</main>
 		</div>
