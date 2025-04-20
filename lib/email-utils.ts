@@ -62,19 +62,15 @@ export async function sendEmail(
 				subscriber.email
 			)}`;
 
-			const personalizedHtml =
-				htmlContent +
-				`
-        <div style="margin-top: 30px; border-top: 1px solid #eaeaea; padding-top: 20px; text-align: center; font-size: 12px; color: #666;">
-          <p><a href="${unsubscribeUrl}" style="color: #666; text-decoration: underline;">Unsubscribe</a></p>
-        </div>
-      `;
+			const personalizedEmail = htmlContent
+				.replace("{{unsubscribe_link}}", unsubscribeUrl)
+				.replace("{{name}}", subscriber.name || "there");
 
 			await resend.emails.send({
 				from: process.env.FROM_EMAIL || "newsletter@yourdomain.com",
 				to: subscriber.email,
 				subject,
-				html: personalizedHtml,
+				html: personalizedEmail,
 			});
 
 			console.log("Email sent to:", subscriber.email);
