@@ -13,18 +13,4 @@ jobs:
       - name: Trigger newsletter API
         run: |
           curl -X GET https://${{ secrets.APP_DOMAIN }}/api/send-newsletter
-          
-      - name: Check response
-        id: check
-        continue-on-error: true
-        run: |
-          response=$(curl -s -w "%{http_code}" -X GET https://${{ secrets.APP_DOMAIN }}/api/send-newsletter)
-          http_code=${response: -3}
-          body=${response:0:$((${#response} - 3))}
-          
-          if [[ $http_code -ge 200 && $http_code -lt 300 ]]; then
-            echo "::notice::Newsletter sent successfully: $body"
-            exit 0
-          else
-            echo "::error::Failed to send newsletter. Status code: $http_code, Response: $body"
-            exit 1
+        
