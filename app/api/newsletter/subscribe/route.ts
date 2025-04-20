@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { addSubscriber } from "../../../../lib/db";
+import { addSubscriber } from "@/lib/db";
 
 export async function POST(request: Request) {
 	try {

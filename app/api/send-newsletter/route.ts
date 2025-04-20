@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { fetchTopStories, formatNewsletter } from "../../../lib/server-utils";
-import { sendEmail } from "../../../lib/email-utils";
+import { fetchTopStories } from "@/lib/server-utils";
+import { sendEmail, formatNewsletter } from "@/lib/email-utils";
 
 export async function GET() {
 	try {

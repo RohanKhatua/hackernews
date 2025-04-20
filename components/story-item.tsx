@@ -30,11 +30,13 @@ export function StoryItem({
 
 	return (
 		<div className="py-3 border-b border-border/40 last:border-0">
-			<div className="flex items-start">
+			<div className="flex">
 				{index !== undefined && (
-					<span className="text-muted-foreground mr-2 mt-0.5 text-base w-5 sm:w-6 text-right flex-shrink-0">
-						{index}.
-					</span>
+					<div className="mr-2 flex-shrink-0">
+						<span className="text-muted-foreground text-base w-5 sm:w-6 text-right inline-block">
+							{index}.
+						</span>
+					</div>
 				)}
 				<div className="flex-1 min-w-0">
 					<div className="flex flex-wrap items-center gap-2">

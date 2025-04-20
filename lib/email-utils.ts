@@ -2,9 +2,24 @@
 
 import { Resend } from "resend";
 import { getAllActiveSubscribers } from "./db";
+import { render } from "@react-email/components";
+import NewsletterEmail from "@/react-emails/emails/NewsletterEmail";
 
 // Initialize Resend with API key from environment variables
 const resend = new Resend(process.env.RESEND_API_KEY);
+
+export async function formatNewsletter(stories: any[]) {
+	const date = new Date().toLocaleDateString("en-US", {
+		weekday: "long",
+		year: "numeric",
+		month: "long",
+		day: "numeric",
+	});
+
+	// Use react-email to render the email template
+	const html = await render(NewsletterEmail({ stories, date }));
+	return html;
+}
 
 /**
  * Send an email using Resend
@@ -51,7 +66,6 @@ export async function sendEmail(
 				htmlContent +
 				`
         <div style="margin-top: 30px; border-top: 1px solid #eaeaea; padding-top: 20px; text-align: center; font-size: 12px; color: #666;">
-          <p>You're receiving this email because you subscribed to the Hacker News newsletter.</p>
           <p><a href="${unsubscribeUrl}" style="color: #666; text-decoration: underline;">Unsubscribe</a></p>
         </div>
       `;

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { removeSubscriber } from "../../../../lib/db";
+import { removeSubscriber } from "@/lib/db";
 
 export async function GET(request: Request) {
 	const url = new URL(request.url);
