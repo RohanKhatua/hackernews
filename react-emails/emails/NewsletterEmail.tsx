@@ -45,22 +45,22 @@ export const NewsletterEmail = ({ stories, date }: NewsletterEmailProps) => {
 				</Head>
 				<Preview>Hacker News Daily Top 5 • {date}</Preview>
 				<Body className="bg-gray-50 font-sans m-0 p-0">
-					<Container className="max-w-md mx-auto my-0 p-6 bg-white rounded-lg shadow-sm">
+					<Container className="w-full max-w-none mx-auto my-0 p-8 bg-white rounded-lg shadow-sm">
 						<Section className="text-center mb-8">
-							<Heading className="text-gray-900 text-2xl font-semibold m-0 mb-1 p-0 leading-tight">
+							<Heading className="text-gray-900 text-3xl font-semibold m-0 mb-1 p-0 leading-tight">
 								<span className="bg-orange-500 text-white py-1 px-2 rounded mr-2 font-bold">
 									HN
 								</span>{" "}
 								Daily Top 5
 							</Heading>
-							<Text className="text-gray-500 text-sm mt-1 mb-0">{date}</Text>
+							<Text className="text-gray-500 text-base mt-2 mb-0">{date}</Text>
 						</Section>
 
 						{stories.map((story, index) => (
 							<Section key={story.id} className="py-4">
 								<div className="flex">
-									<div className="flex-shrink-0 mr-2">
-										<span className="inline-block bg-gray-100 text-gray-600 font-semibold text-sm w-6 h-6 leading-6 text-center rounded-full">
+									<div className="flex-shrink-0 mr-3">
+										<span className="inline-block bg-gray-100 text-gray-600 font-semibold text-sm w-8 h-8 leading-8 text-center rounded-full">
 											{index + 1}
 										</span>
 									</div>
@@ -71,7 +71,7 @@ export const NewsletterEmail = ({ stories, date }: NewsletterEmailProps) => {
 													story.url ||
 													`https://news.ycombinator.com/item?id=${story.id}`
 												}
-												className="text-base font-medium text-gray-900 no-underline">
+												className="text-lg font-medium text-gray-900 no-underline hover:underline">
 												{story.title}
 											</Link>
 										</Text>
@@ -82,14 +82,14 @@ export const NewsletterEmail = ({ stories, date }: NewsletterEmailProps) => {
 											by {story.by} •{" "}
 											<Link
 												href={`https://news.ycombinator.com/item?id=${story.id}`}
-												className="text-gray-500 no-underline">
+												className="text-gray-500 hover:text-gray-700 no-underline">
 												{story.descendants || 0} comments
 											</Link>
 										</Text>
 									</div>
 								</div>
 								{index < stories.length - 1 && (
-									<Hr className="border-t border-gray-200 m-0 p-0" />
+									<Hr className="border-t border-gray-200 mt-4 mb-0 p-0" />
 								)}
 							</Section>
 						))}
