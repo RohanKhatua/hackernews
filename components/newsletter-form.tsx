@@ -14,7 +14,7 @@ export function NewsletterForm() {
 		e.preventDefault();
 
 		if (!email) {
-			toast.error("Please enter your email");
+			toast("Please enter a valid email address.");
 			return;
 		}
 
