@@ -125,6 +125,25 @@ exports.Prisma.SubscriberScalarFieldEnum = {
   active: 'active'
 };
 
+exports.Prisma.UserScalarFieldEnum = {
+  id: 'id',
+  name: 'name',
+  email: 'email',
+  password: 'password',
+  emailVerified: 'emailVerified',
+  image: 'image',
+  role: 'role',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+};
+
+exports.Prisma.SessionScalarFieldEnum = {
+  id: 'id',
+  sessionToken: 'sessionToken',
+  userId: 'userId',
+  expires: 'expires'
+};
+
 exports.Prisma.SortOrder = {
   asc: 'asc',
   desc: 'desc'
@@ -142,7 +161,9 @@ exports.Prisma.NullsOrder = {
 
 
 exports.Prisma.ModelName = {
-  Subscriber: 'Subscriber'
+  Subscriber: 'Subscriber',
+  User: 'User',
+  Session: 'Session'
 };
 
 /**

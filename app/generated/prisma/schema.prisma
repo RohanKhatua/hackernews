@@ -19,3 +19,26 @@ model Subscriber {
   createdAt DateTime @default(now())
   active    Boolean  @default(true)
 }
+
+model User {
+  id            String    @id @default(uuid())
+  name          String?
+  email         String    @unique
+  password      String
+  emailVerified DateTime?
+  image         String?
+  role          String    @default("user")
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  sessions      Session[]
+}
+
+model Session {
+  id           String   @id @default(uuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
