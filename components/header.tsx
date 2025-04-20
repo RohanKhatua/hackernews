@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { usePathname } from "next/navigation";
 import { useAuth, useLogout } from "@/lib/auth-client";
+import { ThemeToggle } from "./theme-toggle";
 
 export function Header() {
 	const pathname = usePathname();
@@ -151,6 +152,10 @@ export function Header() {
 						<SearchIcon className="h-4 w-4" />
 						<span className="hidden sm:inline">search</span>
 					</Link>
+
+					<div className="mr-2">
+						<ThemeToggle />
+					</div>
 
 					{isAuthenticated ? (
 						<Button

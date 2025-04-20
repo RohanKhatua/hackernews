@@ -2,6 +2,16 @@
 
 import { Button } from "@/components/ui/button";
 import { useState, useEffect } from "react";
+import { Switch } from "@/components/ui/switch";
+import { toast } from "sonner";
+import {
+	Table,
+	TableBody,
+	TableCell,
+	TableHead,
+	TableHeader,
+	TableRow,
+} from "@/components/ui/table";
 
 type Subscriber = {
 	id: string;
@@ -20,6 +30,7 @@ export default function AdminPage() {
 	const [subscribers, setSubscribers] = useState<Subscriber[]>([]);
 	const [subscribersLoading, setSubscribersLoading] = useState(false);
 	const [subscribersError, setSubscribersError] = useState<string | null>(null);
+	const [statusUpdating, setStatusUpdating] = useState<string | null>(null);
 
 	useEffect(() => {
 		fetchSubscribers();
@@ -48,6 +59,50 @@ export default function AdminPage() {
 		}
 	};
 
+	const toggleSubscriberStatus = async (id: string, currentStatus: boolean) => {
+		try {
+			setStatusUpdating(id);
+			const response = await fetch("/api/admin/newsletter/toggle-status", {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+				},
+				body: JSON.stringify({ id, active: !currentStatus }),
+			});
+
+			if (!response.ok) {
+				throw new Error(`Failed to update status: ${response.statusText}`);
+			}
+
+			const data = await response.json();
+
+			if (data.success) {
+				// Update the subscribers list with the updated status
+				setSubscribers((prev) =>
+					prev.map((subscriber) =>
+						subscriber.id === id
+							? { ...subscriber, active: !currentStatus }
+							: subscriber
+					)
+				);
+				toast.success(
+					`Subscriber ${currentStatus ? "disabled" : "enabled"} successfully`
+				);
+			} else {
+				throw new Error(data.error || "Failed to update status");
+			}
+		} catch (error) {
+			console.error("Error toggling subscriber status:", error);
+			toast.error(
+				error instanceof Error
+					? error.message
+					: "Failed to update subscriber status"
+			);
+		} finally {
+			setStatusUpdating(null);
+		}
+	};
+
 	const sendNewsletter = async () => {
 		try {
 			setIsLoading(true);
@@ -66,9 +121,11 @@ export default function AdminPage() {
 
 	return (
 		<div className="max-w-4xl mx-auto p-6">
-			<h1 className="text-2xl font-bold mb-6">Newsletter Admin</h1>
+			<div className="flex justify-between items-center mb-6">
+				<h1 className="text-2xl font-bold">Newsletter Admin</h1>
+			</div>
 
-			<div className="p-6 bg-gray-100 dark:bg-gray-800 rounded-lg">
+			<div className="p-6 border-b mb-6">
 				<h2 className="text-xl font-semibold mb-4">
 					Manual Newsletter Controls
 				</h2>
@@ -99,19 +156,10 @@ export default function AdminPage() {
 							<p>{result.message}</p>
 						</div>
 					)}
-
-					<div className="p-4 border border-gray-200 dark:border-gray-700 rounded-md bg-white dark:bg-gray-900">
-						<h3 className="text-md font-semibold mb-2">
-							Alternatively, use the command line:
-						</h3>
-						<pre className="bg-gray-100 dark:bg-gray-800 p-2 rounded overflow-x-auto">
-							<code>bun scripts/newsletter.ts --now</code>
-						</pre>
-					</div>
 				</div>
 			</div>
 
-			<div className="mt-8 p-6 bg-gray-100 dark:bg-gray-800 rounded-lg">
+			<div className="mt-8 p-6 border-b mb-6">
 				<h2 className="text-xl font-semibold mb-4">Newsletter Schedule</h2>
 				<p className="text-gray-600 dark:text-gray-300">
 					The newsletter is configured to run automatically at 7:00 AM every
@@ -123,7 +171,7 @@ export default function AdminPage() {
 				</p>
 			</div>
 
-			<div className="mt-8 p-6 bg-gray-100 dark:bg-gray-800 rounded-lg">
+			<div className="mt-8 p-6">
 				<div className="flex justify-between items-center mb-4">
 					<h2 className="text-xl font-semibold">
 						Subscribers{" "}
@@ -161,33 +209,58 @@ export default function AdminPage() {
 						</p>
 					</div>
 				) : (
-					<div className="overflow-x-auto">
-						<table className="w-full border-collapse">
-							<thead>
-								<tr className="bg-gray-200 dark:bg-gray-700">
-									<th className="px-4 py-2 text-left rounded-ss-sm rounded-es-sm">
-										Email
-									</th>
-									<th className="px-4 py-2 text-left">Name</th>
-									<th className="px-4 py-2 text-left rounded-se-sm rounded-ee-sm">
-										Subscribed On
-									</th>
-								</tr>
-							</thead>
-							<tbody>
+					<div className="rounded-md border">
+						<Table>
+							<TableHeader>
+								<TableRow className="bg-muted hover:bg-muted">
+									<TableHead>Email</TableHead>
+									<TableHead>Name</TableHead>
+									<TableHead>Subscribed On</TableHead>
+									<TableHead className="text-center">Status</TableHead>
+									<TableHead className="text-right">Actions</TableHead>
+								</TableRow>
+							</TableHeader>
+							<TableBody>
 								{subscribers.map((subscriber) => (
-									<tr
+									<TableRow
 										key={subscriber.id}
-										className="border-b border-gray-200 dark:border-gray-700">
-										<td className="px-4 py-3">{subscriber.email}</td>
-										<td className="px-4 py-3">{subscriber.name || "-"}</td>
-										<td className="px-4 py-3">
+										className={!subscriber.active ? "opacity-60" : ""}>
+										<TableCell>{subscriber.email}</TableCell>
+										<TableCell>{subscriber.name || "-"}</TableCell>
+										<TableCell>
 											{new Date(subscriber.createdAt).toLocaleDateString()}
-										</td>
-									</tr>
+										</TableCell>
+										<TableCell className="text-center">
+											<span
+												className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
+													subscriber.active
+														? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
+														: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"
+												}`}>
+												{subscriber.active ? "Active" : "Inactive"}
+											</span>
+										</TableCell>
+										<TableCell className="text-right w-20">
+											<div className="flex items-center justify-end">
+												<Switch
+													checked={subscriber.active}
+													disabled={statusUpdating === subscriber.id}
+													onCheckedChange={() =>
+														toggleSubscriberStatus(
+															subscriber.id,
+															subscriber.active
+														)
+													}
+													aria-label={`Toggle ${
+														subscriber.active ? "disable" : "enable"
+													}`}
+												/>
+											</div>
+										</TableCell>
+									</TableRow>
 								))}
-							</tbody>
-						</table>
+							</TableBody>
+						</Table>
 					</div>
 				)}
 			</div>

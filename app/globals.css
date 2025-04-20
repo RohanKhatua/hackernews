@@ -4,46 +4,47 @@
 
 @layer base {
 	:root {
-		/* Slightly warmer background for reduced eye strain */
-		--background: 40 30% 98%;
-		/* Softer than black for better contrast ratio */
-		--foreground: 220 10% 20%;
+		/* Warmer, slightly deeper background for better readability */
+		--background: 40 30% 96%;
+		/* Much darker foreground for strong contrast - true black with slight warmth */
+		--foreground: 220 30% 10%;
 
 		--card: 40 30% 99%;
-		--card-foreground: 220 10% 20%;
+		--card-foreground: 220 30% 10%;
 
 		--popover: 40 30% 99%;
-		--popover-foreground: 220 10% 20%;
+		--popover-foreground: 220 30% 10%;
 
-		/* Warm accent color - not too vibrant */
-		--primary: 24 75% 55%;
+		/* More vibrant primary accent color */
+		--primary: 24 85% 50%;
 		--primary-foreground: 60 30% 98%;
 
-		/* Very subtle secondary tones */
-		--secondary: 40 20% 92%;
-		--secondary-foreground: 220 10% 20%;
+		/* More distinct secondary tones */
+		--secondary: 40 30% 88%;
+		--secondary-foreground: 220 30% 10%;
 
-		--muted: 40 20% 92%;
-		--muted-foreground: 220 10% 45%;
+		--muted: 40 25% 90%;
+		--muted-foreground: 220 30% 25%;
 
-		--accent: 40 20% 92%;
-		--accent-foreground: 220 10% 20%;
+		/* More colorful accent */
+		--accent: 30 60% 85%;
+		--accent-foreground: 24 80% 30%;
 
-		--destructive: 0 65% 55%;
+		--destructive: 0 75% 50%;
 		--destructive-foreground: 60 30% 98%;
 
-		--border: 220 15% 85%;
-		--input: 220 15% 90%;
-		--ring: 24 75% 55%;
+		--border: 40 20% 80%;
+		--input: 40 25% 85%;
+		--ring: 24 85% 50%;
 
 		--radius: 0.5rem;
 
-		/* Chart colors with good contrast */
-		--chart-1: 24 75% 55%;
-		--chart-2: 200 65% 45%;
-		--chart-3: 170 50% 40%;
-		--chart-4: 130 50% 45%;
-		--chart-5: 280 40% 50%;
+		/* More vibrant chart colors with better distinction */
+		--chart-1: 24 85% 50%;
+		--chart-2: 200 75% 45%;
+		--chart-3: 160 65% 40%;
+		--chart-4: 120 60% 45%;
+		--chart-5: 280 60% 55%;
 	}
 
 	.dark {
@@ -100,31 +101,56 @@
 		text-rendering: optimizeLegibility;
 	}
 
-	/* Typography optimizations for readability */
+	/* Enhanced typography for better readability */
 	h1,
 	h2,
 	h3,
 	h4,
 	h5,
 	h6 {
-		@apply font-medium tracking-tight;
+		@apply font-medium tracking-tight text-foreground;
 		line-height: 1.2;
+	}
+
+	h1 {
+		@apply text-4xl md:text-5xl mb-6;
+	}
+
+	h2 {
+		@apply text-3xl md:text-4xl mb-5;
+	}
+
+	h3 {
+		@apply text-2xl md:text-3xl mb-4;
+	}
+
+	h4 {
+		@apply text-xl md:text-2xl mb-3;
 	}
 
 	p,
 	li,
 	blockquote {
-		@apply text-base leading-relaxed md:text-lg md:leading-relaxed;
+		@apply text-base leading-relaxed md:text-lg md:leading-relaxed mb-4;
 	}
 
-	/* Code formatting */
+	a {
+		@apply text-primary hover:text-primary/80 underline-offset-2;
+	}
+
+	/* Improved code formatting */
 	code,
 	pre {
-		@apply font-mono text-sm md:text-base bg-secondary bg-opacity-50 rounded px-1;
+		@apply font-mono text-sm md:text-base bg-accent bg-opacity-70 rounded px-1;
 	}
 
 	pre {
-		@apply p-4 my-6 overflow-x-auto;
+		@apply p-4 my-6 overflow-x-auto border border-accent;
+	}
+
+	/* Better focus states for accessibility */
+	:focus-visible {
+		@apply outline-none ring-2 ring-primary ring-offset-2 ring-offset-background;
 	}
 
 	/* Responsive adjustments */

@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
-import { getAllActiveSubscribers } from "@/lib/db";
+import { getAllSubscribers } from "@/lib/db";
 
 export async function GET() {
 	try {
-		// Fetch all active subscribers
-		const subscribers = await getAllActiveSubscribers();
+		// Fetch all subscribers (both active and inactive)
+		const subscribers = await getAllSubscribers();
 
 		return NextResponse.json({
 			success: true,

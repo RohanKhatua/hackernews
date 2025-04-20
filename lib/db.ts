@@ -47,3 +47,10 @@ export async function getAllActiveSubscribers() {
 		where: { active: true },
 	});
 }
+
+// Function to get all subscribers including inactive ones (for admin panel)
+export async function getAllSubscribers() {
+	return prisma.subscriber.findMany({
+		orderBy: { createdAt: "desc" },
+	});
+}

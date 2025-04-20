@@ -67,7 +67,7 @@ export function Comment({ id, level = 0 }: CommentProps) {
 
 	return (
 		<div className={nestingClass}>
-			<div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
+			<div className="flex items-center gap-2 text-sm text-foreground mb-1">
 				<Button
 					variant="ghost"
 					size="icon"
@@ -90,7 +90,7 @@ export function Comment({ id, level = 0 }: CommentProps) {
 			{expanded && (
 				<>
 					<div
-						className="text-base mt-1 pl-5 prose prose-invert max-w-none prose-p:my-1 prose-a:text-primary break-words overflow-x-auto"
+						className="text-base mt-1 pl-5 max-w-none prose-p:my-1 prose-a:text-primary break-words overflow-x-auto"
 						dangerouslySetInnerHTML={{ __html: comment.text || "" }}
 					/>
 
