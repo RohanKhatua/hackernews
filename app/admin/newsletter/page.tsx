@@ -121,9 +121,9 @@ export default function AdminPage() {
 
 	return (
 		<div className="max-w-4xl mx-auto p-6">
-			<div className="flex justify-between items-center mb-6">
-				<h1 className="text-2xl font-bold">Newsletter Admin</h1>
-			</div>
+			<h1 className="text-2xl text-center font-bold items-center">
+				Newsletter Administration
+			</h1>
 
 			<div className="p-6 border-b mb-6">
 				<h2 className="text-xl font-semibold mb-4">
@@ -159,7 +159,7 @@ export default function AdminPage() {
 				</div>
 			</div>
 
-			<div className="mt-8 p-6 border-b mb-6">
+			<div className="p-6 border-b mb-6">
 				<h2 className="text-xl font-semibold mb-4">Newsletter Schedule</h2>
 				<p className="text-gray-600 dark:text-gray-300">
 					The newsletter is configured to run automatically at 7:00 AM every
@@ -171,7 +171,7 @@ export default function AdminPage() {
 				</p>
 			</div>
 
-			<div className="mt-8 p-6">
+			<div className="p-6">
 				<div className="flex justify-between items-center mb-4">
 					<h2 className="text-xl font-semibold">
 						Subscribers{" "}
