@@ -27,25 +27,8 @@ export async function formatNewsletter(stories: any[]) {
  * @param htmlContent Email HTML content
  * @param recipient Optional specific recipient (if not provided, sends to all subscribers)
  */
-export async function sendEmail(
-	subject: string,
-	htmlContent: string,
-	recipient?: string
-) {
+export async function sendEmail(subject: string, htmlContent: string) {
 	try {
-		// If specific recipient is provided, send only to them
-		if (recipient) {
-			const data = await resend.emails.send({
-				from: process.env.FROM_EMAIL || "newsletter@yourdomain.com",
-				to: recipient,
-				subject,
-				html: htmlContent,
-			});
-
-			console.log("Email sent to:", recipient);
-			return { success: true, message: "Email sent successfully", data };
-		}
-
 		// Otherwise, send to all active subscribers
 		const subscribers = await getAllActiveSubscribers();
 
@@ -54,26 +37,38 @@ export async function sendEmail(
 			return { success: false, message: "No subscribers found" };
 		}
 
-		// Send to each subscriber with personalized unsubscribe link
-		for (const subscriber of subscribers) {
-			const unsubscribeUrl = `${
-				process.env.NEXT_PUBLIC_APP_URL
-			}/api/newsletter/unsubscribe?email=${encodeURIComponent(
-				subscriber.email
-			)}`;
+		const batchSize = 100; // Adjust batch size as needed
+		const numBatches = Math.ceil(subscribers.length / batchSize);
 
-			const personalizedEmail = htmlContent
-				.replace("{{unsubscribe_link}}", unsubscribeUrl)
-				.replace("{{name}}", subscriber.name || "there");
+		for (let i = 0; i < numBatches; i++) {
+			const start = i * batchSize;
+			const end = start + batchSize;
 
-			await resend.emails.send({
-				from: process.env.FROM_EMAIL || "newsletter@yourdomain.com",
-				to: subscriber.email,
-				subject,
-				html: personalizedEmail,
-			});
+			let emailObjectBatch = [];
 
-			console.log("Email sent to:", subscriber.email);
+			for (let j = start; j < end && j < subscribers.length; j++) {
+				const subscriber = subscribers[j];
+				const unsubscribeUrl = `${
+					process.env.NEXT_PUBLIC_APP_URL
+				}/api/newsletter/unsubscribe?email=${encodeURIComponent(
+					subscriber.email
+				)}`;
+
+				const personalizedEmail = htmlContent
+					.replace("{{unsubscribe_link}}", unsubscribeUrl)
+					.replace("{{name}}", subscriber.name || "there");
+
+				emailObjectBatch.push({
+					from: process.env.FROM_EMAIL || "newsletter@yourdomain.com",
+					to: subscriber.email,
+					subject: subject,
+					html: personalizedEmail,
+				});
+			}
+
+			// Send batch of emails
+			await resend.batch.send(emailObjectBatch);
+			console.log(`Batch ${i + 1} of ${numBatches} sent`);
 		}
 
 		return {
