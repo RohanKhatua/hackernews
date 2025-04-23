@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { useState, useEffect } from "react";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
+import { CheckCircle, AlertCircle } from "lucide-react";
 import {
 	Table,
 	TableBody,
@@ -148,12 +149,49 @@ export default function AdminPage() {
 
 					{result && (
 						<div
-							className={`p-4 mt-4 rounded-md ${
+							className={`p-4 mt-4 rounded-md border flex items-start ${
 								result.success
-									? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
-									: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"
+									? "bg-green-50 border-green-200 dark:bg-green-900/30 dark:border-green-800"
+									: "bg-red-50 border-red-200 dark:bg-red-900/30 dark:border-red-800"
 							}`}>
-							<p>{result.message}</p>
+							<div className="pl-2 pr-2 flex items-center pt-1.5 justify-center">
+								{result.success ? (
+									<CheckCircle
+										className="text-green-600 dark:text-green-400"
+										size={20}
+									/>
+								) : (
+									<AlertCircle
+										className="text-red-600 dark:text-red-400"
+										size={20}
+									/>
+								)}
+							</div>
+							<div className="flex-1">
+								<h4
+									className={`font-medium ${
+										result.success
+											? "text-green-800 dark:text-green-300"
+											: "text-red-800 dark:text-red-300"
+									}`}>
+									{result.success
+										? "Newsletter Sent Successfully"
+										: "Failed to Send Newsletter"}
+								</h4>
+								<p
+									className={`text-sm mt-1.5 ${
+										result.success
+											? "text-green-700 dark:text-green-400"
+											: "text-red-700 dark:text-red-400"
+									}`}>
+									{result.message}
+								</p>
+								{result.success && (
+									<p className="text-xs text-green-600 dark:text-green-500 mt-1.5">
+										Sent at: {new Date().toLocaleString()}
+									</p>
+								)}
+							</div>
 						</div>
 					)}
 				</div>
