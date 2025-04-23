@@ -30,7 +30,20 @@ export async function addSubscriber(email: string, name?: string) {
 	}
 }
 
-export async function removeSubscriber(email: string) {
+export async function removeSubscriber(subscriberId: string) {
+	try {
+		await prisma.subscriber.update({
+			where: { id: subscriberId },
+			data: { active: false },
+		});
+		return { success: true };
+	} catch (error: any) {
+		return { success: false, error: error.message };
+	}
+}
+
+// For backwards compatibility - we'll keep this temporarily during migration
+export async function removeSubscriberByEmail(email: string) {
 	try {
 		await prisma.subscriber.update({
 			where: { email },

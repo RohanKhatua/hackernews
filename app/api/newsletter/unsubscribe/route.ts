@@ -3,17 +3,17 @@ import { removeSubscriber } from "@/lib/db";
 
 export async function GET(request: Request) {
 	const url = new URL(request.url);
-	const email = url.searchParams.get("email");
+	const subscriberId = url.searchParams.get("id");
 
-	if (!email) {
+	if (!subscriberId) {
 		return NextResponse.json(
-			{ success: false, error: "Email is required" },
+			{ success: false, error: "Subscriber ID is required" },
 			{ status: 400 }
 		);
 	}
 
 	try {
-		const result = await removeSubscriber(email);
+		const result = await removeSubscriber(subscriberId);
 
 		if (!result.success) {
 			return NextResponse.json(

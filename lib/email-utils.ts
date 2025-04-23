@@ -50,9 +50,7 @@ export async function sendEmail(subject: string, htmlContent: string) {
 				const subscriber = subscribers[j];
 				const unsubscribeUrl = `${
 					process.env.NEXT_PUBLIC_APP_URL
-				}/api/newsletter/unsubscribe?email=${encodeURIComponent(
-					subscriber.email
-				)}`;
+				}/api/newsletter/unsubscribe?id=${encodeURIComponent(subscriber.id)}`;
 
 				const personalizedEmail = htmlContent
 					.replace("{{unsubscribe_link}}", unsubscribeUrl)
