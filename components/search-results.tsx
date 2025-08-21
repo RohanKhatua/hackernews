@@ -92,12 +92,12 @@ export function SearchResults({ query, type }: SearchResultsProps) {
 
         let fetchedResults = data.hits;
 
-        // Client-side sorting for points and comments
-        if (sortBy === "points") {
-          fetchedResults = fetchedResults.sort((a, b) => (b.points || 0) - (a.points || 0));
-        } else if (sortBy === "comments") {
-          fetchedResults = fetchedResults.sort((a, b) => (b.num_comments || 0) - (a.num_comments || 0));
-        }
+         // Client-side sorting for points and comments
+         if (sortBy === "points") {
+           fetchedResults = fetchedResults.sort((a: { points: number; }, b: { points: number; }) => (b.points || 0) - (a.points || 0));
+         } else if (sortBy === "comments") {
+           fetchedResults = fetchedResults.sort((a: { num_comments: number; }, b: { num_comments: number; }) => (b.num_comments || 0) - (a.num_comments || 0));
+         }
 
         if (page === 0) {
           setResults(fetchedResults)
@@ -115,7 +115,7 @@ export function SearchResults({ query, type }: SearchResultsProps) {
     }
 
     fetchResults()
-  }, [query, type, page, sortBy])
+  }, [query, type, page, sortBy, sortOptions])
 
   const loadMore = () => {
     setPage((prev) => prev + 1)
@@ -158,9 +158,9 @@ export function SearchResults({ query, type }: SearchResultsProps) {
         </div>
       ) : results.length === 0 && !loading ? (
         <div className="py-8 text-center">
-          <p className="text-muted-foreground">
-            No {type} found for "{query}"
-          </p>
+           <p className="text-muted-foreground">
+             No {type} found for &quot;{query}&quot;
+           </p>
         </div>
       ) : (
         <div className="space-y-0">
