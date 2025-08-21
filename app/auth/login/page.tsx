@@ -13,6 +13,7 @@ import {
 	CardContent,
 	CardFooter,
 } from "@/components/ui/card";
+import { Eye, EyeOff } from "lucide-react";
 
 export default function LoginPage() {
 	const [email, setEmail] = useState("");
@@ -54,31 +55,33 @@ export default function LoginPage() {
 									className="w-full"
 								/>
 							</div>
-							<div className="space-y-2 relative">
-								<label
-									htmlFor="password"
-									className="block text-sm font-medium"
-								>
+							<div className="space-y-2">
+								<label htmlFor="password" className="block text-sm font-medium">
 									Password
 								</label>
-								<Input
-									id="password"
-									type={showPassword ? "text" : "password"}
-									placeholder="••••••••"
-									value={password}
-									onChange={(e) => setPassword(e.target.value)}
-									required
-									className="w-full"
-								/>
-								<Button
-									type="button"
-									variant="ghost"
-									size="sm"
-									className="absolute right-0 top-7"
-									onClick={() => setShowPassword(!showPassword)}
-								>
-									{showPassword ? "Hide" : "Show"}
-								</Button>
+								<div className="relative">
+									<Input
+										id="password"
+										type={showPassword ? "text" : "password"}
+										placeholder="••••••••"
+										value={password}
+										onChange={(e) => setPassword(e.target.value)}
+										required
+										className="w-full pr-12"
+									/>
+									<div
+										onClick={() => setShowPassword(!showPassword)}
+										className="absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8 flex items-center justify-center cursor-pointer text-gray-500 hover:text-gray-700 rounded-md"
+										aria-label={
+											showPassword ? "Hide password" : "Show password"
+										}>
+										{showPassword ? (
+											<EyeOff className="h-4 w-4" />
+										) : (
+											<Eye className="h-4 w-4" />
+										)}
+									</div>
+								</div>
 							</div>
 							<Button type="submit" className="w-full" disabled={isLoading}>
 								{isLoading ? "Logging in..." : "Login"}
