@@ -24,3 +24,6 @@ This document outlines the key commands and conventions for working in this repo
 - **Authentication:** This project uses NextAuth.js for authentication.
 - **Database:** This project uses Prisma for database management.
 - **Framework:** This is a Next.js project.
+
+### Instructions 
+- Do not commit or push any code to Github. Do not run any git commands. Make code changes, I will handle version control and committing myself. 
