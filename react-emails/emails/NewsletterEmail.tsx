@@ -81,8 +81,8 @@ export const NewsletterEmail = ({
 											<Link
 												href={
 													story.url
-														? `${appUrl}/item/${story.id}`
-														: `https://news.ycombinator.com/item?id=${story.id}`
+														? story.url
+														: `${appUrl ?? ""}/item/${story.id}`
 												}
 												className="text-lg font-medium text-gray-900 no-underline hover:underline">
 												{story.title}
