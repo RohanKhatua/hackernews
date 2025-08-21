@@ -28,8 +28,34 @@ export async function formatNewsletter(stories: any[]) {
  * @param htmlContent Email HTML content
  * @param recipient Optional specific recipient (if not provided, sends to all subscribers)
  */
-export async function sendEmail(subject: string, htmlContent: string) {
+export async function sendEmail(
+	subject: string,
+	htmlContent: string,
+	recipient?: string
+) {
 	try {
+		// If a specific recipient is provided, send only to them
+		if (recipient) {
+			const unsubscribeUrl = `${
+				process.env.NEXT_PUBLIC_APP_URL
+			}/api/newsletter/unsubscribe?email=${encodeURIComponent(recipient)}`;
+
+			const personalizedEmail = htmlContent
+				.replace("{{unsubscribe_link}}", unsubscribeUrl)
+				.replace("{{name}}", "there");
+
+			await resend.emails.send({
+				from: process.env.FROM_EMAIL || "newsletter@yourdomain.com",
+				to: recipient,
+				subject: subject,
+				html: personalizedEmail,
+			});
+
+			return {
+				success: true,
+				message: `Email sent to ${recipient}`,
+			};
+		}
 		// Otherwise, send to all active subscribers
 		const subscribers = await getAllActiveSubscribers();
 

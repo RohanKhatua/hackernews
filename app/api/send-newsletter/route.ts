@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { fetchTopStories } from "@/lib/server-utils";
 import { sendEmail, formatNewsletter } from "@/lib/email-utils";
 import { requireAdmin } from "@/lib/auth-utils";
@@ -17,7 +17,7 @@ async function validateApiKey(headersList: Headers): Promise<boolean> {
 	return apiKey === validApiKey;
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
 	try {
 		// First try admin authentication
 		try {
@@ -35,6 +35,17 @@ export async function GET() {
 					{ status: 401 }
 				);
 			}
+		}
+
+		const { searchParams } = new URL(request.url);
+		const email = searchParams.get("email");
+		const isTest = searchParams.get("test") === "true";
+
+		if (isTest && !email) {
+			return NextResponse.json(
+				{ success: false, message: "Test email recipient is required" },
+				{ status: 400 }
+			);
 		}
 
 		// Authentication successful (either admin or API key), proceed with newsletter sending
@@ -57,7 +68,11 @@ export async function GET() {
 			day: "numeric",
 		});
 
-		const result = await sendEmail(`Hacker News Top 5 - ${date}`, htmlContent);
+		const result = await sendEmail(
+			`Hacker News Top 5 - ${date}`,
+			htmlContent,
+			isTest ? email! : undefined
+		);
 
 		if (!result.success) {
 			return NextResponse.json(

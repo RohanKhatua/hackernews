@@ -5,6 +5,7 @@ import { useState, useEffect } from "react";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { CheckCircle, AlertCircle } from "lucide-react";
+import { useSession } from "next-auth/react";
 import {
 	Table,
 	TableBody,
@@ -23,7 +24,9 @@ type Subscriber = {
 };
 
 export default function AdminPage() {
+	const { data: session } = useSession();
 	const [isLoading, setIsLoading] = useState(false);
+	const [isTestLoading, setIsTestLoading] = useState(false);
 	const [result, setResult] = useState<{
 		success?: boolean;
 		message?: string;
@@ -83,7 +86,7 @@ export default function AdminPage() {
 					prev.map((subscriber) =>
 						subscriber.id === id
 							? { ...subscriber, active: !currentStatus }
-							: subscriber
+														: subscriber
 					)
 				);
 				toast.success(
@@ -120,6 +123,28 @@ export default function AdminPage() {
 		}
 	};
 
+	const sendTestNewsletter = async () => {
+		try {
+			setIsTestLoading(true);
+			setResult(null);
+
+			if (!session?.user?.email) {
+				throw new Error("Admin user email not found.");
+			}
+
+			const response = await fetch(
+				`/api/send-newsletter?test=true&email=${session?.user?.email}`
+			);
+			const data = await response.json();
+
+			setResult(data);
+		} catch (error) {
+			setResult({ success: false, message: String(error) });
+		} finally {
+			setIsTestLoading(false);
+		}
+	};
+
 	return (
 		<div className="max-w-4xl mx-auto p-6">
 			<h1 className="text-2xl text-center font-bold items-center">
@@ -138,12 +163,18 @@ export default function AdminPage() {
 						to the configured recipient.
 					</p>
 
-					<div>
+					<div className="flex gap-4">
 						<Button
 							onClick={sendNewsletter}
 							disabled={isLoading}
 							variant={"destructive"}>
 							{isLoading ? "Sending..." : "Send Newsletter Now"}
+						</Button>
+						<Button
+							onClick={sendTestNewsletter}
+							disabled={isTestLoading}
+							variant={"outline"}>
+							{isTestLoading ? "Sending..." : "Send to Me"}
 						</Button>
 					</div>
 
