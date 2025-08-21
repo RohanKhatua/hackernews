@@ -16,8 +16,9 @@ export async function formatNewsletter(stories: any[]) {
 		day: "numeric",
 	});
 
+	const appUrl = process.env.NEXT_PUBLIC_APP_URL;
 	// Use react-email to render the email template
-	const html = await render(NewsletterEmail({ stories, date }));
+	const html = await render(NewsletterEmail({ stories, date, appUrl }));
 	return html;
 }
 

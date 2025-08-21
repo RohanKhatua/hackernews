@@ -25,9 +25,14 @@ interface Story {
 interface NewsletterEmailProps {
 	stories: Story[];
 	date: string;
+	appUrl?: string;
 }
 
-export const NewsletterEmail = ({ stories, date }: NewsletterEmailProps) => {
+export const NewsletterEmail = ({
+	stories,
+	date,
+	appUrl,
+}: NewsletterEmailProps) => {
 	return (
 		<Tailwind>
 			<Html>
@@ -75,8 +80,9 @@ export const NewsletterEmail = ({ stories, date }: NewsletterEmailProps) => {
 										<Text className="m-0 mb-2 leading-relaxed">
 											<Link
 												href={
-													story.url ||
-													`https://news.ycombinator.com/item?id=${story.id}`
+													story.url
+														? `${appUrl}/item/${story.id}`
+														: `https://news.ycombinator.com/item?id=${story.id}`
 												}
 												className="text-lg font-medium text-gray-900 no-underline hover:underline">
 												{story.title}
@@ -88,7 +94,7 @@ export const NewsletterEmail = ({ stories, date }: NewsletterEmailProps) => {
 											</span>{" "}
 											by {story.by} •{" "}
 											<Link
-												href={`https://news.ycombinator.com/item?id=${story.id}`}
+												href={`${appUrl}/item/${story.id}`}
 												className="text-gray-500 hover:text-gray-700 no-underline">
 												{story.descendants || 0} comments
 											</Link>
