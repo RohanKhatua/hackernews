@@ -17,6 +17,7 @@ import {
 export default function LoginPage() {
 	const [email, setEmail] = useState("");
 	const [password, setPassword] = useState("");
+	const [showPassword, setShowPassword] = useState(false);
 	const { login, isLoading, error } = useLogin();
 
 	const handleSubmit = async (e: React.FormEvent) => {
@@ -53,19 +54,31 @@ export default function LoginPage() {
 									className="w-full"
 								/>
 							</div>
-							<div className="space-y-2">
-								<label htmlFor="password" className="block text-sm font-medium">
+							<div className="space-y-2 relative">
+								<label
+									htmlFor="password"
+									className="block text-sm font-medium"
+								>
 									Password
 								</label>
 								<Input
 									id="password"
-									type="password"
+									type={showPassword ? "text" : "password"}
 									placeholder="••••••••"
 									value={password}
 									onChange={(e) => setPassword(e.target.value)}
 									required
 									className="w-full"
 								/>
+								<Button
+									type="button"
+									variant="ghost"
+									size="sm"
+									className="absolute right-0 top-7"
+									onClick={() => setShowPassword(!showPassword)}
+								>
+									{showPassword ? "Hide" : "Show"}
+								</Button>
 							</div>
 							<Button type="submit" className="w-full" disabled={isLoading}>
 								{isLoading ? "Logging in..." : "Login"}
