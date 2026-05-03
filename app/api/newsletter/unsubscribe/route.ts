@@ -1,29 +1,32 @@
 import { NextResponse } from "next/server";
-import { removeSubscriber } from "@/lib/db";
+import { removeSubscriber, removeSubscriberByEmail } from "@/lib/db";
 
 export async function GET(request: Request) {
-	const url = new URL(request.url);
-	const subscriberId = url.searchParams.get("id");
+  const url = new URL(request.url);
+  const subscriberId = url.searchParams.get("id");
+  const email = url.searchParams.get("email");
 
-	if (!subscriberId) {
-		return NextResponse.json(
-			{ success: false, error: "Subscriber ID is required" },
-			{ status: 400 }
-		);
-	}
+  if (!subscriberId && !email) {
+    return NextResponse.json(
+      { success: false, error: "Subscriber ID or email is required" },
+      { status: 400 },
+    );
+  }
 
-	try {
-		const result = await removeSubscriber(subscriberId);
+  try {
+    const result = subscriberId
+      ? await removeSubscriber(subscriberId)
+      : await removeSubscriberByEmail(email!);
 
-		if (!result.success) {
-			return NextResponse.json(
-				{ success: false, error: result.error },
-				{ status: 400 }
-			);
-		}
+    if (!result.success) {
+      return NextResponse.json(
+        { success: false, error: result.error },
+        { status: 400 },
+      );
+    }
 
-		return new Response(
-			`<html>
+    return new Response(
+      `<html>
         <head>
           <title>Unsubscribed</title>
           <style>
@@ -45,16 +48,16 @@ export async function GET(request: Request) {
           <p>If this was a mistake, you can <a href="/">subscribe again</a>.</p>
         </body>
       </html>`,
-			{
-				headers: {
-					"Content-Type": "text/html",
-				},
-			}
-		);
-	} catch (error) {
-		return NextResponse.json(
-			{ success: false, error: "Failed to process unsubscription" },
-			{ status: 500 }
-		);
-	}
+      {
+        headers: {
+          "Content-Type": "text/html",
+        },
+      },
+    );
+  } catch (error) {
+    return NextResponse.json(
+      { success: false, error: "Failed to process unsubscription" },
+      { status: 500 },
+    );
+  }
 }

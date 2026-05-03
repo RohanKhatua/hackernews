@@ -1,99 +1,120 @@
 import { NextRequest, NextResponse } from "next/server";
 import { fetchTopStories } from "@/lib/server-utils";
-import { sendEmail, formatNewsletter } from "@/lib/email-utils";
+import {
+  sendEmail,
+  formatNewsletter,
+  sendRecommendedEmail,
+} from "@/lib/email-utils";
 import { requireAdmin } from "@/lib/auth-utils";
 import { headers } from "next/headers";
 
 // API key authentication function
 async function validateApiKey(headersList: Headers): Promise<boolean> {
-	const apiKey = headersList.get("x-api-key");
-	const validApiKey = process.env.NEWSLETTER_API_KEY;
+  const apiKey = headersList.get("x-api-key");
+  const validApiKey = process.env.NEWSLETTER_API_KEY;
 
-	// If no API key is configured in environment, this authentication method is disabled
-	if (!validApiKey) {
-		return false;
-	}
+  // If no API key is configured in environment, this authentication method is disabled
+  if (!validApiKey) {
+    return false;
+  }
 
-	return apiKey === validApiKey;
+  return apiKey === validApiKey;
 }
 
 export async function GET(request: NextRequest) {
-	try {
-		// First try admin authentication
-		try {
-			// This will throw an error if not authenticated as admin
-			await requireAdmin();
-		} catch (authError) {
-			// Admin auth failed, try API key authentication
-			const headersList = headers();
-			const isValidApiKey = await validateApiKey(await headersList);
+  try {
+    // First try admin authentication
+    try {
+      // This will throw an error if not authenticated as admin
+      await requireAdmin();
+    } catch (authError) {
+      // Admin auth failed, try API key authentication
+      const headersList = headers();
+      const isValidApiKey = await validateApiKey(await headersList);
 
-			if (!isValidApiKey) {
-				// Both authentication methods failed
-				return NextResponse.json(
-					{ success: false, message: "Unauthorized" },
-					{ status: 401 }
-				);
-			}
-		}
+      if (!isValidApiKey) {
+        // Both authentication methods failed
+        return NextResponse.json(
+          { success: false, message: "Unauthorized" },
+          { status: 401 },
+        );
+      }
+    }
 
-		const { searchParams } = new URL(request.url);
-		const email = searchParams.get("email");
-		const isTest = searchParams.get("test") === "true";
+    const { searchParams } = new URL(request.url);
+    const email = searchParams.get("email");
+    const isTest = searchParams.get("test") === "true";
+    const isRecommended = searchParams.get("recommended") === "true";
 
-		if (isTest && !email) {
-			return NextResponse.json(
-				{ success: false, message: "Test email recipient is required" },
-				{ status: 400 }
-			);
-		}
+    if (isTest && !email) {
+      return NextResponse.json(
+        { success: false, message: "Test email recipient is required" },
+        { status: 400 },
+      );
+    }
 
-		// Authentication successful (either admin or API key), proceed with newsletter sending
-		// Fetch the top 5 stories
-		const stories = await fetchTopStories(5);
+    // Authentication successful (either admin or API key), proceed with newsletter sending
+    if (isRecommended) {
+      const result = await sendRecommendedEmail(isTest ? email! : undefined);
 
-		if (stories.length === 0) {
-			return NextResponse.json(
-				{ success: false, message: "Failed to fetch stories" },
-				{ status: 500 }
-			);
-		}
+      if (!result.success) {
+        return NextResponse.json(
+          { success: false, message: result.message },
+          { status: 500 },
+        );
+      }
 
-		// Format the stories into an HTML email
-		const htmlContent = await formatNewsletter(stories);
+      return NextResponse.json({
+        success: true,
+        message: result.message,
+      });
+    }
 
-		// Send the email to all subscribers
-		const date = new Date().toLocaleDateString("en-US", {
-			month: "short",
-			day: "numeric",
-		});
+    // Fetch the top 5 stories
+    const stories = await fetchTopStories(5);
 
-		const result = await sendEmail(
-			`Hacker News Top 5 - ${date}`,
-			htmlContent,
-			isTest ? email! : undefined
-		);
+    if (stories.length === 0) {
+      return NextResponse.json(
+        { success: false, message: "Failed to fetch stories" },
+        { status: 500 },
+      );
+    }
 
-		if (!result.success) {
-			return NextResponse.json(
-				{ success: false, message: result.message },
-				{ status: 500 }
-			);
-		}
+    // Format the stories into an HTML email
+    const htmlContent = await formatNewsletter(stories);
 
-		return NextResponse.json({
-			success: true,
-			message: result.message,
-		});
-	} catch (error) {
-		console.error("Error sending newsletter:", error);
-		return NextResponse.json(
-			{
-				success: false,
-				message: "Failed to send newsletter",
-				error: String(error),
-			},
-			{ status: 500 }
-		);
-	}
+    // Send the email to all subscribers
+    const date = new Date().toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+    });
+
+    const result = await sendEmail(
+      `Hacker News Top 5 - ${date}`,
+      htmlContent,
+      isTest ? email! : undefined,
+    );
+
+    if (!result.success) {
+      return NextResponse.json(
+        { success: false, message: result.message },
+        { status: 500 },
+      );
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: result.message,
+    });
+  } catch (error) {
+    console.error("Error sending newsletter:", error);
+    return NextResponse.json(
+      {
+        success: false,
+        message: "Failed to send newsletter",
+        error: String(error),
+      },
+      { status: 500 },
+    );
+  }
 }

@@ -5,11 +5,12 @@ import { Header } from "@/components/header";
 import { StoryItem } from "@/components/story-item";
 import { Comment } from "@/components/comment";
 import { Skeleton } from "@/components/ui/skeleton";
+import { getReaderId } from "@/lib/reader-id";
 
 export default function ItemPage({
   params,
 }: {
-  params: { id: string } | Promise<{ id: string }>
+  params: Promise<{ id: string }>;
 }) {
   const resolvedParams = use(params);
   const { id } = resolvedParams;
@@ -20,7 +21,7 @@ export default function ItemPage({
     const fetchStory = async () => {
       try {
         const response = await fetch(
-          `https://hacker-news.firebaseio.com/v0/item/${id}.json`
+          `https://hacker-news.firebaseio.com/v0/item/${id}.json`,
         );
         const data = await response.json();
         setStory(data);
@@ -33,6 +34,26 @@ export default function ItemPage({
 
     fetchStory();
   }, [id]);
+
+  useEffect(() => {
+    if (!story?.id) return;
+    const readerId = getReaderId();
+    if (!readerId) return;
+
+    fetch("/api/interactions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      keepalive: true,
+      body: JSON.stringify({
+        readerId,
+        storyId: story.id,
+        type: "read",
+        story,
+      }),
+    }).catch((error) => {
+      console.error("Error recording story view:", error);
+    });
+  }, [story]);
 
   return (
     <div className="min-h-screen flex flex-col">

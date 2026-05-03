@@ -4,22 +4,46 @@ import { Resend } from "resend";
 import { getAllActiveSubscribers } from "./db";
 import { render } from "@react-email/components";
 import NewsletterEmail from "@/react-emails/emails/NewsletterEmail";
+import { getRecommendedStoriesForEmail } from "@/lib/recommendations";
 
 // Initialize Resend with API key from environment variables
 const resend = new Resend(process.env.RESEND_API_KEY);
 
 export async function formatNewsletter(stories: any[]) {
-	const date = new Date().toLocaleDateString("en-US", {
-		weekday: "long",
-		year: "numeric",
-		month: "long",
-		day: "numeric",
-	});
+  const date = new Date().toLocaleDateString("en-US", {
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
 
-	const appUrl = process.env.NEXT_PUBLIC_APP_URL;
-	// Use react-email to render the email template
-	const html = await render(NewsletterEmail({ stories, date, appUrl }));
-	return html;
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL;
+  // Use react-email to render the email template
+  const html = await render(NewsletterEmail({ stories, date, appUrl }));
+  return html;
+}
+
+export async function formatRecommendedNewsletter(stories: any[]) {
+  const date = new Date().toLocaleDateString("en-US", {
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL;
+  const html = await render(
+    NewsletterEmail({
+      stories,
+      date,
+      appUrl,
+      title: "Recommended",
+      intro:
+        "Here are today's stories ranked from your reads, likes, authors, domains, and story topics:",
+      preview: `Hacker News recommendations • ${date}`,
+    }),
+  );
+  return html;
 }
 
 /**
@@ -29,79 +53,144 @@ export async function formatNewsletter(stories: any[]) {
  * @param recipient Optional specific recipient (if not provided, sends to all subscribers)
  */
 export async function sendEmail(
-	subject: string,
-	htmlContent: string,
-	recipient?: string
+  subject: string,
+  htmlContent: string,
+  recipient?: string,
 ) {
-	try {
-		// If a specific recipient is provided, send only to them
-		if (recipient) {
-			const unsubscribeUrl = `${
-				process.env.NEXT_PUBLIC_APP_URL
-			}/api/newsletter/unsubscribe?email=${encodeURIComponent(recipient)}`;
+  try {
+    // If a specific recipient is provided, send only to them
+    if (recipient) {
+      const unsubscribeUrl = `${
+        process.env.NEXT_PUBLIC_APP_URL
+      }/api/newsletter/unsubscribe?email=${encodeURIComponent(recipient)}`;
 
-			const personalizedEmail = htmlContent
-				.replace("{{unsubscribe_link}}", unsubscribeUrl)
-				.replace("{{name}}", "there");
+      const personalizedEmail = htmlContent
+        .replace("{{unsubscribe_link}}", unsubscribeUrl)
+        .replace("{{name}}", "there");
 
-			await resend.emails.send({
-				from: process.env.FROM_EMAIL || "newsletter@yourdomain.com",
-				to: recipient,
-				subject: subject,
-				html: personalizedEmail,
-			});
+      await resend.emails.send({
+        from: process.env.FROM_EMAIL || "newsletter@yourdomain.com",
+        to: recipient,
+        subject: subject,
+        html: personalizedEmail,
+      });
 
-			return {
-				success: true,
-				message: `Email sent to ${recipient}`,
-			};
-		}
-		// Otherwise, send to all active subscribers
-		const subscribers = await getAllActiveSubscribers();
+      return {
+        success: true,
+        message: `Email sent to ${recipient}`,
+      };
+    }
+    // Otherwise, send to all active subscribers
+    const subscribers = await getAllActiveSubscribers();
 
-		if (subscribers.length === 0) {
-			console.log("No subscribers found");
-			return { success: false, message: "No subscribers found" };
-		}
+    if (subscribers.length === 0) {
+      console.log("No subscribers found");
+      return { success: false, message: "No subscribers found" };
+    }
 
-		const batchSize = 100; // Adjust batch size as needed
-		const numBatches = Math.ceil(subscribers.length / batchSize);
+    const batchSize = 100; // Adjust batch size as needed
+    const numBatches = Math.ceil(subscribers.length / batchSize);
 
-		for (let i = 0; i < numBatches; i++) {
-			const start = i * batchSize;
-			const end = start + batchSize;
+    for (let i = 0; i < numBatches; i++) {
+      const start = i * batchSize;
+      const end = start + batchSize;
 
-			let emailObjectBatch = [];
+      let emailObjectBatch = [];
 
-			for (let j = start; j < end && j < subscribers.length; j++) {
-				const subscriber = subscribers[j];
-				const unsubscribeUrl = `${
-					process.env.NEXT_PUBLIC_APP_URL
-				}/api/newsletter/unsubscribe?id=${encodeURIComponent(subscriber.id)}`;
+      for (let j = start; j < end && j < subscribers.length; j++) {
+        const subscriber = subscribers[j];
+        const unsubscribeUrl = `${
+          process.env.NEXT_PUBLIC_APP_URL
+        }/api/newsletter/unsubscribe?id=${encodeURIComponent(subscriber.id)}`;
 
-				const personalizedEmail = htmlContent
-					.replace("{{unsubscribe_link}}", unsubscribeUrl)
-					.replace("{{name}}", subscriber.name || "there");
+        const personalizedEmail = htmlContent
+          .replace("{{unsubscribe_link}}", unsubscribeUrl)
+          .replace("{{name}}", subscriber.name || "there");
 
-				emailObjectBatch.push({
-					from: process.env.FROM_EMAIL || "newsletter@yourdomain.com",
-					to: subscriber.email,
-					subject: subject,
-					html: personalizedEmail,
-				});
-			}
+        emailObjectBatch.push({
+          from: process.env.FROM_EMAIL || "newsletter@yourdomain.com",
+          to: subscriber.email,
+          subject: subject,
+          html: personalizedEmail,
+        });
+      }
 
-			// Send batch of emails
-			await resend.batch.send(emailObjectBatch);
-			console.log(`Batch ${i + 1} of ${numBatches} sent`);
-		}
+      // Send batch of emails
+      await resend.batch.send(emailObjectBatch);
+      console.log(`Batch ${i + 1} of ${numBatches} sent`);
+    }
 
-		return {
-			success: true,
-			message: `Email sent to ${subscribers.length} subscribers`,
-		};
-	} catch (error) {
-		console.error("Error sending email: ", error);
-		throw error;
-	}
+    return {
+      success: true,
+      message: `Email sent to ${subscribers.length} subscribers`,
+    };
+  } catch (error) {
+    console.error("Error sending email: ", error);
+    throw error;
+  }
+}
+
+export async function sendRecommendedEmail(recipient?: string) {
+  try {
+    const date = new Date().toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+    });
+    const subject = `Hacker News Recommended - ${date}`;
+
+    if (recipient) {
+      const stories = await getRecommendedStoriesForEmail(recipient, 5);
+      const htmlContent = await formatRecommendedNewsletter(stories);
+      const unsubscribeUrl = `${
+        process.env.NEXT_PUBLIC_APP_URL
+      }/api/newsletter/unsubscribe?email=${encodeURIComponent(recipient)}`;
+      const personalizedEmail = htmlContent
+        .replace("{{unsubscribe_link}}", unsubscribeUrl)
+        .replace("{{name}}", "there");
+
+      await resend.emails.send({
+        from: process.env.FROM_EMAIL || "newsletter@yourdomain.com",
+        to: recipient,
+        subject,
+        html: personalizedEmail,
+      });
+
+      return {
+        success: true,
+        message: `Recommended email sent to ${recipient}`,
+      };
+    }
+
+    const subscribers = await getAllActiveSubscribers();
+
+    if (subscribers.length === 0) {
+      return { success: false, message: "No subscribers found" };
+    }
+
+    for (const subscriber of subscribers) {
+      const stories = await getRecommendedStoriesForEmail(subscriber.email, 5);
+      const htmlContent = await formatRecommendedNewsletter(stories);
+      const unsubscribeUrl = `${
+        process.env.NEXT_PUBLIC_APP_URL
+      }/api/newsletter/unsubscribe?id=${encodeURIComponent(subscriber.id)}`;
+      const personalizedEmail = htmlContent
+        .replace("{{unsubscribe_link}}", unsubscribeUrl)
+        .replace("{{name}}", subscriber.name || "there");
+
+      await resend.emails.send({
+        from: process.env.FROM_EMAIL || "newsletter@yourdomain.com",
+        to: subscriber.email,
+        subject,
+        html: personalizedEmail,
+      });
+    }
+
+    return {
+      success: true,
+      message: `Recommended email sent to ${subscribers.length} subscribers`,
+    };
+  } catch (error) {
+    console.error("Error sending recommended email: ", error);
+    throw error;
+  }
 }

@@ -12,24 +12,27 @@ datasource db {
 }
 
 model Subscriber {
-  id        String   @id @default(uuid())
-  email     String   @unique
-  name      String?
-  createdAt DateTime @default(now())
-  active    Boolean  @default(true)
+  id                  String             @id @default(uuid())
+  email               String             @unique
+  name                String?
+  createdAt           DateTime           @default(now())
+  active              Boolean            @default(true)
+  recommendationToken String             @unique @default(uuid())
+  interactions        StoryInteraction[]
 }
 
 model User {
-  id            String    @id @default(uuid())
+  id            String             @id @default(uuid())
   name          String?
-  email         String    @unique
+  email         String             @unique
   password      String
   emailVerified DateTime?
   image         String?
-  role          String    @default("user")
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  role          String             @default("user")
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
   sessions      Session[]
+  interactions  StoryInteraction[]
 }
 
 model Session {
@@ -40,4 +43,33 @@ model Session {
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+}
+
+model StoryInteraction {
+  id            String      @id @default(uuid())
+  userId        String?
+  subscriberId  String?
+  readerId      String
+  storyId       Int
+  type          String
+  weight        Int         @default(1)
+  count         Int         @default(1)
+  storyTitle    String
+  storyUrl      String?
+  storyBy       String?
+  storyScore    Int?
+  storyComments Int?
+  storyTime     Int?
+  domain        String?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  user          User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
+  subscriber    Subscriber? @relation(fields: [subscriberId], references: [id], onDelete: Cascade)
+
+  @@unique([readerId, storyId, type])
+  @@unique([subscriberId, storyId, type])
+  @@index([readerId, updatedAt])
+  @@index([subscriberId, updatedAt])
+  @@index([userId, updatedAt])
+  @@index([storyId])
 }
