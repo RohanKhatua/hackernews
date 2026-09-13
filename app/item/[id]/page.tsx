@@ -6,6 +6,7 @@ import { StoryItem } from "@/components/story-item";
 import { Comment } from "@/components/comment";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getReaderId } from "@/lib/reader-id";
+import type { HackerNewsStory } from "@/lib/hn";
 
 export default function ItemPage({
   params,
@@ -14,7 +15,7 @@ export default function ItemPage({
 }) {
   const resolvedParams = use(params);
   const { id } = resolvedParams;
-  const [story, setStory] = useState<any>(null);
+  const [story, setStory] = useState<HackerNewsStory | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -79,9 +80,9 @@ export default function ItemPage({
               id={story.id}
               title={story.title}
               url={story.url}
-              score={story.score}
-              by={story.by}
-              time={story.time}
+              score={story.score || 0}
+              by={story.by || "unknown"}
+              time={story.time || 0}
               descendants={story.descendants || 0}
             />
 

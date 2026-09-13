@@ -5,11 +5,21 @@ import { getAllActiveSubscribers } from "./db";
 import { render } from "@react-email/components";
 import NewsletterEmail from "@/react-emails/emails/NewsletterEmail";
 import { getRecommendedStoriesForEmail } from "@/lib/recommendations";
+import type { HackerNewsStory } from "@/lib/hn";
 
 // Initialize Resend with API key from environment variables
 const resend = new Resend(process.env.RESEND_API_KEY);
 
-export async function formatNewsletter(stories: any[]) {
+function toEmailStories(stories: HackerNewsStory[]) {
+  return stories.map((story) => ({
+    ...story,
+    score: story.score || 0,
+    by: story.by || "unknown",
+    descendants: story.descendants || 0,
+  }));
+}
+
+export async function formatNewsletter(stories: HackerNewsStory[]) {
   const date = new Date().toLocaleDateString("en-US", {
     weekday: "long",
     year: "numeric",
@@ -19,11 +29,13 @@ export async function formatNewsletter(stories: any[]) {
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL;
   // Use react-email to render the email template
-  const html = await render(NewsletterEmail({ stories, date, appUrl }));
+  const html = await render(
+    NewsletterEmail({ stories: toEmailStories(stories), date, appUrl }),
+  );
   return html;
 }
 
-export async function formatRecommendedNewsletter(stories: any[]) {
+export async function formatRecommendedNewsletter(stories: HackerNewsStory[]) {
   const date = new Date().toLocaleDateString("en-US", {
     weekday: "long",
     year: "numeric",
@@ -34,7 +46,7 @@ export async function formatRecommendedNewsletter(stories: any[]) {
   const appUrl = process.env.NEXT_PUBLIC_APP_URL;
   const html = await render(
     NewsletterEmail({
-      stories,
+      stories: toEmailStories(stories),
       date,
       appUrl,
       title: "Recommended",
@@ -95,7 +107,7 @@ export async function sendEmail(
       const start = i * batchSize;
       const end = start + batchSize;
 
-      let emailObjectBatch = [];
+      const emailObjectBatch = [];
 
       for (let j = start; j < end && j < subscribers.length; j++) {
         const subscriber = subscribers[j];

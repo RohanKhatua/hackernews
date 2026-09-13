@@ -54,7 +54,7 @@ export async function GET(request: Request) {
         },
       },
     );
-  } catch (error) {
+  } catch {
     return NextResponse.json(
       { success: false, error: "Failed to process unsubscription" },
       { status: 500 },

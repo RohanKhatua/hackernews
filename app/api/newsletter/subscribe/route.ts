@@ -26,7 +26,7 @@ export async function POST(request: Request) {
       success: true,
       message: "Successfully subscribed to newsletter",
     });
-  } catch (error: any) {
+  } catch {
     return NextResponse.json(
       { success: false, error: "Failed to process subscription" },
       { status: 500 },

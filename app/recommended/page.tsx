@@ -9,8 +9,8 @@ export default function RecommendedPage() {
         <div className="mb-4 border-b border-border/40 pb-3">
           <h1 className="text-2xl font-semibold">Recommended</h1>
           <p className="text-sm text-muted-foreground">
-            Ranked from this browser's reads, likes, authors, domains, and story
-            topics.
+            Ranked from this browser&apos;s reads, likes, authors, domains, and
+            story topics.
           </p>
         </div>
         <RecommendedStoryList />

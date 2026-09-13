@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
     try {
       // This will throw an error if not authenticated as admin
       await requireAdmin();
-    } catch (authError) {
+    } catch {
       // Admin auth failed, try API key authentication
       const headersList = headers();
       const isValidApiKey = await validateApiKey(await headersList);

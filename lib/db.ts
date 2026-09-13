@@ -3,6 +3,10 @@ import { PrismaClient } from "@prisma/client";
 // Create a single instance of Prisma Client
 const globalForPrisma = global as unknown as { prisma: PrismaClient };
 
+function getErrorMessage(error: unknown, fallback: string) {
+  return error instanceof Error ? error.message : fallback;
+}
+
 export const prisma =
   globalForPrisma.prisma ||
   new PrismaClient({
@@ -35,8 +39,11 @@ export async function addSubscriber(
     }
 
     return { success: true, subscriber };
-  } catch (error: any) {
-    return { success: false, error: error.message };
+  } catch (error: unknown) {
+    return {
+      success: false,
+      error: getErrorMessage(error, "Failed to add subscriber"),
+    };
   }
 }
 
@@ -57,8 +64,11 @@ export async function removeSubscriber(subscriberId: string) {
       data: { active: false },
     });
     return { success: true };
-  } catch (error: any) {
-    return { success: false, error: error.message };
+  } catch (error: unknown) {
+    return {
+      success: false,
+      error: getErrorMessage(error, "Failed to remove subscriber"),
+    };
   }
 }
 
@@ -70,8 +80,11 @@ export async function removeSubscriberByEmail(email: string) {
       data: { active: false },
     });
     return { success: true };
-  } catch (error: any) {
-    return { success: false, error: error.message };
+  } catch (error: unknown) {
+    return {
+      success: false,
+      error: getErrorMessage(error, "Failed to remove subscriber"),
+    };
   }
 }
 

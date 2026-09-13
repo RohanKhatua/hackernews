@@ -39,7 +39,7 @@ export function NewsletterForm() {
       } else {
         toast.error(data.error || "Failed to subscribe. Please try again.");
       }
-    } catch (error) {
+    } catch {
       toast.error("Something went wrong. Please try again.");
     } finally {
       setIsLoading(false);

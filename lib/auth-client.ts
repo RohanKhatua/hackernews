@@ -5,66 +5,66 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 export function useAuth() {
-	const { data: session, status } = useSession();
-	const user = session?.user;
-	const isAuthenticated = !!user;
-	const isAdmin = user?.role === "admin";
+  const { data: session, status } = useSession();
+  const user = session?.user;
+  const isAuthenticated = !!user;
+  const isAdmin = user?.role === "admin";
 
-	return {
-		user,
-		isAuthenticated,
-		isAdmin,
-		status,
-	};
+  return {
+    user,
+    isAuthenticated,
+    isAdmin,
+    status,
+  };
 }
 
 export function useLogin() {
-	const router = useRouter();
-	const [isLoading, setIsLoading] = useState(false);
-	const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-	async function login(email: string, password: string) {
-		try {
-			setIsLoading(true);
-			setError(null);
+  async function login(email: string, password: string) {
+    try {
+      setIsLoading(true);
+      setError(null);
 
-			const result = await signIn("credentials", {
-				redirect: false,
-				email,
-				password,
-			});
+      const result = await signIn("credentials", {
+        redirect: false,
+        email,
+        password,
+      });
 
-			if (result?.error) {
-				setError("Invalid email or password");
-				return false;
-			}
+      if (result?.error) {
+        setError("Invalid email or password");
+        return false;
+      }
 
-			router.push("/admin/newsletter");
-			router.refresh();
-			return true;
-		} catch (e) {
-			setError("An unexpected error occurred");
-			return false;
-		} finally {
-			setIsLoading(false);
-		}
-	}
+      router.push("/admin/newsletter");
+      router.refresh();
+      return true;
+    } catch {
+      setError("An unexpected error occurred");
+      return false;
+    } finally {
+      setIsLoading(false);
+    }
+  }
 
-	return {
-		login,
-		isLoading,
-		error,
-	};
+  return {
+    login,
+    isLoading,
+    error,
+  };
 }
 
 export function useLogout() {
-	const router = useRouter();
+  const router = useRouter();
 
-	async function logout() {
-		await signOut({ redirect: false });
-		router.push("/");
-		router.refresh();
-	}
+  async function logout() {
+    await signOut({ redirect: false });
+    router.push("/");
+    router.refresh();
+  }
 
-	return { logout };
+  return { logout };
 }

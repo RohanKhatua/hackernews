@@ -10,7 +10,7 @@ import { ThemeToggle } from "./theme-toggle";
 
 export function Header() {
   const pathname = usePathname();
-  const { user, isAuthenticated, isAdmin } = useAuth();
+  const { isAuthenticated, isAdmin } = useAuth();
   const { logout } = useLogout();
 
   // Helper function to determine if link is active
