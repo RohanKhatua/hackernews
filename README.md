@@ -41,6 +41,9 @@ Hacker News - But Better is a redesigned version of the popular tech news aggreg
 
 ### Email
 
-- **Nodemailer/Resend**: For sending newsletters and notifications
+- **Resend**: For sending newsletters and notifications (via a provider abstraction in `lib/email/provider.ts`)
+- **Vercel Cron**: Schedules the daily newsletter (`vercel.json`)
+- **Double opt-in**: New subscribers confirm via email before receiving the newsletter
+- **Webhooks**: Delivery/bounce/complaint events handled at `/api/webhooks/resend`
 
 Made with ❤️ and ⚙️ by [@RohanKhatua](https://github.com/rohankhatua)

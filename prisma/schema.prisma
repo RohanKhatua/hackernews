@@ -17,8 +17,31 @@ model Subscriber {
   name                String?
   createdAt           DateTime           @default(now())
   active              Boolean            @default(true)
+  confirmedAt         DateTime?
+  confirmationToken   String?            @unique
   recommendationToken String             @unique @default(uuid())
   interactions        StoryInteraction[]
+  emailLogs           EmailLog[]
+}
+
+model EmailLog {
+  id           String      @id @default(uuid())
+  subscriberId String?
+  recipient    String
+  subject      String
+  kind         String
+  status       String      @default("queued")
+  batchKey     String?
+  providerId   String?
+  error        String?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  subscriber   Subscriber? @relation(fields: [subscriberId], references: [id], onDelete: SetNull)
+
+  @@unique([batchKey, recipient])
+  @@index([recipient])
+  @@index([kind, createdAt])
+  @@index([providerId])
 }
 
 model User {

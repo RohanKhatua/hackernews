@@ -293,12 +293,12 @@ export default function AdminPage() {
       <div className="p-6 border-b mb-6">
         <h2 className="text-xl font-semibold mb-4">Newsletter Schedule</h2>
         <p className="text-gray-600 dark:text-gray-300">
-          The newsletter is configured to run automatically at 7:00 AM every
-          day.
+          The newsletter is configured to run automatically at 7:00 AM (IST)
+          every day via Vercel Cron.
         </p>
         <p className="mt-2 text-gray-600 dark:text-gray-300">
           To change this schedule, edit the cron expression in{" "}
-          <code>.github/workflows/daily-newsletter.yml</code>.
+          <code>vercel.json</code>.
         </p>
       </div>
 

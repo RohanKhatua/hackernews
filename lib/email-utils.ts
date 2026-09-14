@@ -1,14 +1,85 @@
 "use server";
 
-import { Resend } from "resend";
-import { getAllActiveSubscribers } from "./db";
 import { render } from "@react-email/components";
 import NewsletterEmail from "@/react-emails/emails/NewsletterEmail";
+import ConfirmSubscriptionEmail from "@/react-emails/emails/ConfirmSubscriptionEmail";
+import { getAllActiveSubscribers, getSubscriberByEmail } from "./db";
 import { getRecommendedStoriesForEmail } from "@/lib/recommendations";
+import { createUnsubscribeToken } from "@/lib/tokens";
+import { getEmailProvider, EMAIL_BATCH_SIZE, type EmailMessage } from "@/lib/email/provider";
+import {
+  claimEmails,
+  markEmailsFailed,
+  markEmailsSent,
+  recordSingleEmail,
+  getSentRecipients,
+  type EmailKind,
+} from "@/lib/email/logging";
 import type { HackerNewsStory } from "@/lib/hn";
+import type { Subscriber } from "@prisma/client";
 
-// Initialize Resend with API key from environment variables
-const resend = new Resend(process.env.RESEND_API_KEY);
+type Recipient = Pick<Subscriber, "id" | "email" | "name">;
+
+const RENDER_CONCURRENCY = 10;
+
+function getFromAddress() {
+  return process.env.FROM_EMAIL || "newsletter@yourdomain.com";
+}
+
+function getAppUrl() {
+  return process.env.NEXT_PUBLIC_APP_URL || "";
+}
+
+function unsubscribeUrl(subscriberId: string) {
+  return `${getAppUrl()}/api/newsletter/unsubscribe?token=${encodeURIComponent(
+    createUnsubscribeToken(subscriberId),
+  )}`;
+}
+
+function listUnsubscribeHeaders(subscriberId: string): Record<string, string> {
+  const url = unsubscribeUrl(subscriberId);
+  return {
+    "List-Unsubscribe": `<${url}>, <mailto:${getFromAddress()}?subject=unsubscribe>`,
+    "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+  };
+}
+
+function personalize(html: string, name: string, unsubscribe: string) {
+  return html
+    .replace("{{unsubscribe_link}}", unsubscribe)
+    .replace("{{name}}", name);
+}
+
+function dateKey() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function longDate() {
+  return new Date().toLocaleDateString("en-US", {
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+}
+
+function shortDate() {
+  return new Date().toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+  });
+}
+
+function broadcastSummary(result: {
+  sent: number;
+  failed: number;
+  skipped: number;
+}) {
+  const parts = [`Email sent to ${result.sent} subscribers`];
+  if (result.failed) parts.push(`${result.failed} failed`);
+  if (result.skipped) parts.push(`${result.skipped} already sent`);
+  return parts.join(", ");
+}
 
 function toEmailStories(stories: HackerNewsStory[]) {
   return stories.map((story) => ({
@@ -19,36 +90,40 @@ function toEmailStories(stories: HackerNewsStory[]) {
   }));
 }
 
-export async function formatNewsletter(stories: HackerNewsStory[]) {
-  const date = new Date().toLocaleDateString("en-US", {
-    weekday: "long",
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  });
+async function mapWithConcurrency<T, R>(
+  items: T[],
+  limit: number,
+  fn: (item: T) => Promise<R>,
+): Promise<R[]> {
+  const results: R[] = new Array(items.length);
+  let cursor = 0;
 
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL;
-  // Use react-email to render the email template
+  async function worker() {
+    while (cursor < items.length) {
+      const index = cursor++;
+      results[index] = await fn(items[index]);
+    }
+  }
+
+  const workers = Array.from({ length: Math.min(limit, items.length) }, worker);
+  await Promise.all(workers);
+  return results;
+}
+
+export async function formatNewsletter(stories: HackerNewsStory[]) {
   const html = await render(
-    NewsletterEmail({ stories: toEmailStories(stories), date, appUrl }),
+    NewsletterEmail({ stories: toEmailStories(stories), date: longDate(), appUrl: getAppUrl() }),
   );
   return html;
 }
 
 export async function formatRecommendedNewsletter(stories: HackerNewsStory[]) {
-  const date = new Date().toLocaleDateString("en-US", {
-    weekday: "long",
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  });
-
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL;
+  const date = longDate();
   const html = await render(
     NewsletterEmail({
       stories: toEmailStories(stories),
       date,
-      appUrl,
+      appUrl: getAppUrl(),
       title: "Recommended",
       intro:
         "Here are today's stories ranked from your reads, likes, authors, domains, and story topics:",
@@ -58,83 +133,195 @@ export async function formatRecommendedNewsletter(stories: HackerNewsStory[]) {
   return html;
 }
 
+async function formatConfirmationEmail(name: string | null, confirmUrl: string) {
+  return render(ConfirmSubscriptionEmail({ name: name || undefined, confirmUrl }));
+}
+
 /**
- * Send an email using Resend
- * @param subject Email subject
- * @param htmlContent Email HTML content
- * @param recipient Optional specific recipient (if not provided, sends to all subscribers)
+ * Broadcasts an email to a list of recipients, batching provider requests and
+ * recording a log per recipient so retries are idempotent.
  */
+async function broadcast({
+  kind,
+  subject,
+  recipients,
+  buildHtml,
+  batchKey,
+}: {
+  kind: EmailKind;
+  subject: string;
+  recipients: Recipient[];
+  buildHtml: (subscriber: Recipient) => Promise<string>;
+  batchKey?: string;
+}) {
+  const alreadySent = batchKey
+    ? await getSentRecipients(batchKey)
+    : new Set<string>();
+  const pending = recipients.filter(
+    (recipient) => !alreadySent.has(recipient.email.toLowerCase()),
+  );
+
+  let sent = 0;
+  let failed = 0;
+  const skipped = recipients.length - pending.length;
+
+  for (let i = 0; i < pending.length; i += EMAIL_BATCH_SIZE) {
+    const chunk = pending.slice(i, i + EMAIL_BATCH_SIZE);
+
+    const logIds = await claimEmails(
+      chunk.map((subscriber) => ({
+        subscriberId: subscriber.id,
+        recipient: subscriber.email,
+        subject,
+        kind,
+        batchKey: batchKey ?? null,
+      })),
+    );
+
+    const rendered = await mapWithConcurrency(
+      chunk,
+      RENDER_CONCURRENCY,
+      async (subscriber) => {
+        try {
+          const html = await buildHtml(subscriber);
+          const message: EmailMessage = {
+            from: getFromAddress(),
+            to: subscriber.email,
+            subject,
+            html: personalize(
+              html,
+              subscriber.name || "there",
+              unsubscribeUrl(subscriber.id),
+            ),
+            headers: listUnsubscribeHeaders(subscriber.id),
+          };
+          return { subscriber, message };
+        } catch (error) {
+          return {
+            subscriber,
+            message: null,
+            error: error instanceof Error ? error.message : String(error),
+          };
+        }
+      },
+    );
+
+    const sendable = rendered.filter(
+      (item): item is { subscriber: Recipient; message: EmailMessage } =>
+        item.message !== null,
+    );
+    const renderFailures = rendered.filter((item) => item.message === null);
+
+    if (renderFailures.length > 0) {
+      await markEmailsFailed(
+        renderFailures.flatMap((item) => {
+          const logId = logIds.get(item.subscriber.email.toLowerCase());
+          return logId
+            ? [{ id: logId, error: item.error || "Failed to render email" }]
+            : [];
+        }),
+      );
+      failed += renderFailures.length;
+    }
+
+    if (sendable.length === 0) {
+      continue;
+    }
+
+    try {
+      const results = await getEmailProvider().sendBatch(
+        sendable.map((item) => item.message),
+      );
+
+      const updates = sendable.flatMap((item, index) => {
+        const logId = logIds.get(item.subscriber.email.toLowerCase());
+        const providerId = results[index]?.id;
+        return logId && providerId ? [{ id: logId, providerId }] : [];
+      });
+      await markEmailsSent(updates);
+      sent += updates.length;
+      failed += sendable.length - updates.length;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      await markEmailsFailed(
+        sendable.flatMap((item) => {
+          const logId = logIds.get(item.subscriber.email.toLowerCase());
+          return logId ? [{ id: logId, error: message }] : [];
+        }),
+      );
+      failed += sendable.length;
+    }
+  }
+
+  return { sent, failed, skipped };
+}
+
+async function sendTestEmail(
+  recipient: string,
+  subject: string,
+  htmlContent: string,
+  kind: EmailKind,
+) {
+  const subscriber = await getSubscriberByEmail(recipient);
+  const url = subscriber ? unsubscribeUrl(subscriber.id) : getAppUrl();
+  const html = personalize(htmlContent, "there", url);
+
+  try {
+    const { id } = await getEmailProvider().send({
+      from: getFromAddress(),
+      to: recipient,
+      subject,
+      html,
+      ...(subscriber ? { headers: listUnsubscribeHeaders(subscriber.id) } : {}),
+    });
+
+    await recordSingleEmail({
+      subscriberId: subscriber?.id ?? null,
+      recipient,
+      subject,
+      kind,
+      providerId: id,
+    });
+
+    return { success: true as const, message: `Email sent to ${recipient}` };
+  } catch (error) {
+    await recordSingleEmail({
+      recipient,
+      subject,
+      kind,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    throw error;
+  }
+}
+
 export async function sendEmail(
   subject: string,
   htmlContent: string,
   recipient?: string,
+  kind: EmailKind = "top5",
 ) {
   try {
-    // If a specific recipient is provided, send only to them
     if (recipient) {
-      const unsubscribeUrl = `${
-        process.env.NEXT_PUBLIC_APP_URL
-      }/api/newsletter/unsubscribe?email=${encodeURIComponent(recipient)}`;
-
-      const personalizedEmail = htmlContent
-        .replace("{{unsubscribe_link}}", unsubscribeUrl)
-        .replace("{{name}}", "there");
-
-      await resend.emails.send({
-        from: process.env.FROM_EMAIL || "newsletter@yourdomain.com",
-        to: recipient,
-        subject: subject,
-        html: personalizedEmail,
-      });
-
-      return {
-        success: true,
-        message: `Email sent to ${recipient}`,
-      };
+      return await sendTestEmail(recipient, subject, htmlContent, kind);
     }
-    // Otherwise, send to all active subscribers
-    const subscribers = await getAllActiveSubscribers();
 
+    const subscribers = await getAllActiveSubscribers();
     if (subscribers.length === 0) {
-      console.log("No subscribers found");
       return { success: false, message: "No subscribers found" };
     }
 
-    const batchSize = 100; // Adjust batch size as needed
-    const numBatches = Math.ceil(subscribers.length / batchSize);
-
-    for (let i = 0; i < numBatches; i++) {
-      const start = i * batchSize;
-      const end = start + batchSize;
-
-      const emailObjectBatch = [];
-
-      for (let j = start; j < end && j < subscribers.length; j++) {
-        const subscriber = subscribers[j];
-        const unsubscribeUrl = `${
-          process.env.NEXT_PUBLIC_APP_URL
-        }/api/newsletter/unsubscribe?id=${encodeURIComponent(subscriber.id)}`;
-
-        const personalizedEmail = htmlContent
-          .replace("{{unsubscribe_link}}", unsubscribeUrl)
-          .replace("{{name}}", subscriber.name || "there");
-
-        emailObjectBatch.push({
-          from: process.env.FROM_EMAIL || "newsletter@yourdomain.com",
-          to: subscriber.email,
-          subject: subject,
-          html: personalizedEmail,
-        });
-      }
-
-      // Send batch of emails
-      await resend.batch.send(emailObjectBatch);
-      console.log(`Batch ${i + 1} of ${numBatches} sent`);
-    }
+    const result = await broadcast({
+      kind,
+      subject,
+      recipients: subscribers,
+      buildHtml: async () => htmlContent,
+      batchKey: `${kind}:${dateKey()}`,
+    });
 
     return {
       success: true,
-      message: `Email sent to ${subscribers.length} subscribers`,
+      message: broadcastSummary(result),
     };
   } catch (error) {
     console.error("Error sending email: ", error);
@@ -144,65 +331,72 @@ export async function sendEmail(
 
 export async function sendRecommendedEmail(recipient?: string) {
   try {
-    const date = new Date().toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-    });
-    const subject = `Hacker News Recommended - ${date}`;
+    const subject = `Hacker News Recommended - ${shortDate()}`;
 
     if (recipient) {
       const stories = await getRecommendedStoriesForEmail(recipient, 5);
       const htmlContent = await formatRecommendedNewsletter(stories);
-      const unsubscribeUrl = `${
-        process.env.NEXT_PUBLIC_APP_URL
-      }/api/newsletter/unsubscribe?email=${encodeURIComponent(recipient)}`;
-      const personalizedEmail = htmlContent
-        .replace("{{unsubscribe_link}}", unsubscribeUrl)
-        .replace("{{name}}", "there");
-
-      await resend.emails.send({
-        from: process.env.FROM_EMAIL || "newsletter@yourdomain.com",
-        to: recipient,
+      return await sendTestEmail(
+        recipient,
         subject,
-        html: personalizedEmail,
-      });
-
-      return {
-        success: true,
-        message: `Recommended email sent to ${recipient}`,
-      };
+        htmlContent,
+        "recommended",
+      );
     }
 
     const subscribers = await getAllActiveSubscribers();
-
     if (subscribers.length === 0) {
       return { success: false, message: "No subscribers found" };
     }
 
-    for (const subscriber of subscribers) {
-      const stories = await getRecommendedStoriesForEmail(subscriber.email, 5);
-      const htmlContent = await formatRecommendedNewsletter(stories);
-      const unsubscribeUrl = `${
-        process.env.NEXT_PUBLIC_APP_URL
-      }/api/newsletter/unsubscribe?id=${encodeURIComponent(subscriber.id)}`;
-      const personalizedEmail = htmlContent
-        .replace("{{unsubscribe_link}}", unsubscribeUrl)
-        .replace("{{name}}", subscriber.name || "there");
-
-      await resend.emails.send({
-        from: process.env.FROM_EMAIL || "newsletter@yourdomain.com",
-        to: subscriber.email,
-        subject,
-        html: personalizedEmail,
-      });
-    }
+    const result = await broadcast({
+      kind: "recommended",
+      subject,
+      recipients: subscribers,
+      batchKey: `recommended:${dateKey()}`,
+      buildHtml: async (subscriber) => {
+        const stories = await getRecommendedStoriesForEmail(
+          subscriber.email,
+          5,
+        );
+        return formatRecommendedNewsletter(stories);
+      },
+    });
 
     return {
       success: true,
-      message: `Recommended email sent to ${subscribers.length} subscribers`,
+      message: broadcastSummary(result),
     };
   } catch (error) {
     console.error("Error sending recommended email: ", error);
     throw error;
   }
+}
+
+export async function sendConfirmationEmail(
+  email: string,
+  name: string | null,
+  confirmationToken: string,
+) {
+  const confirmUrl = `${getAppUrl()}/api/newsletter/confirm?token=${encodeURIComponent(
+    confirmationToken,
+  )}`;
+  const html = await formatConfirmationEmail(name, confirmUrl);
+  const subject = "Confirm your Hacker News newsletter subscription";
+
+  const { id } = await getEmailProvider().send({
+    from: getFromAddress(),
+    to: email,
+    subject,
+    html,
+  });
+
+  await recordSingleEmail({
+    recipient: email,
+    subject,
+    kind: "confirmation",
+    providerId: id,
+  });
+
+  return { success: true };
 }

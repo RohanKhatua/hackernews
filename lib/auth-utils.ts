@@ -24,6 +24,18 @@ export async function requireAuth() {
   return user;
 }
 
+/**
+ * Returns the current user if they are an admin, otherwise null.
+ * Safe to use in API routes (does not redirect).
+ */
+export async function getAdminUser() {
+  const user = await getCurrentUser();
+  if (!user || user.role !== "admin") {
+    return null;
+  }
+  return user;
+}
+
 export async function requireAdmin() {
   // Get the current request path
   const headersList = headers();

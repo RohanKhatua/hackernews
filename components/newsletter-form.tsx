@@ -33,7 +33,9 @@ export function NewsletterForm() {
       const data = await response.json();
 
       if (data.success) {
-        toast.success("Successfully subscribed to the newsletter!");
+        toast.success(
+          data.message || "Successfully subscribed to the newsletter!",
+        );
         setEmail("");
         setName("");
       } else {

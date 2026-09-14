@@ -5,11 +5,23 @@ import {
   formatNewsletter,
   sendRecommendedEmail,
 } from "@/lib/email-utils";
-import { requireAdmin } from "@/lib/auth-utils";
+import { getAdminUser } from "@/lib/auth-utils";
 import { headers } from "next/headers";
 
+// Vercel Cron authentication. Vercel sends `Authorization: Bearer <CRON_SECRET>`
+// for scheduled invocations when the CRON_SECRET env var is configured.
+function validateCronSecret(headersList: Headers): boolean {
+  const cronSecret = process.env.CRON_SECRET;
+  if (!cronSecret) {
+    return false;
+  }
+
+  const authorization = headersList.get("authorization");
+  return authorization === `Bearer ${cronSecret}`;
+}
+
 // API key authentication function
-async function validateApiKey(headersList: Headers): Promise<boolean> {
+function validateApiKey(headersList: Headers): boolean {
   const apiKey = headersList.get("x-api-key");
   const validApiKey = process.env.NEWSLETTER_API_KEY;
 
@@ -23,22 +35,18 @@ async function validateApiKey(headersList: Headers): Promise<boolean> {
 
 export async function GET(request: NextRequest) {
   try {
-    // First try admin authentication
-    try {
-      // This will throw an error if not authenticated as admin
-      await requireAdmin();
-    } catch {
-      // Admin auth failed, try API key authentication
-      const headersList = headers();
-      const isValidApiKey = await validateApiKey(await headersList);
+    const headersList = await headers();
+    const admin = await getAdminUser();
+    const isAuthorized =
+      Boolean(admin) ||
+      validateCronSecret(headersList) ||
+      validateApiKey(headersList);
 
-      if (!isValidApiKey) {
-        // Both authentication methods failed
-        return NextResponse.json(
-          { success: false, message: "Unauthorized" },
-          { status: 401 },
-        );
-      }
+    if (!isAuthorized) {
+      return NextResponse.json(
+        { success: false, message: "Unauthorized" },
+        { status: 401 },
+      );
     }
 
     const { searchParams } = new URL(request.url);
@@ -53,7 +61,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Authentication successful (either admin or API key), proceed with newsletter sending
+    // Authentication successful (admin, cron, or API key), proceed with newsletter sending
     if (isRecommended) {
       const result = await sendRecommendedEmail(isTest ? email! : undefined);
 
