@@ -1,69 +1,148 @@
 "use client";
 
-import { Button } from "@/components/ui/button";
-import { useState, useEffect } from "react";
-import { Switch } from "@/components/ui/switch";
-import { toast } from "sonner";
-import { CheckCircle, AlertCircle } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
+import { toast } from "sonner";
+import { RefreshCw } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs";
+import { StatsCards, EmailTypeBreakdown } from "@/components/admin/newsletter/stats-cards";
+import { EmailActivityChart } from "@/components/admin/newsletter/email-activity-chart";
+import { SendControls } from "@/components/admin/newsletter/send-controls";
+import {
+  EmailLogsTable,
+  type EmailLogFilters,
+} from "@/components/admin/newsletter/email-logs-table";
+import { SubscribersTable } from "@/components/admin/newsletter/subscribers-table";
+import type { SendResult } from "@/components/admin/newsletter/types";
+import type {
+  EmailLogRow,
+  EmailStatsData,
+  EmailLogsResponse,
+  NewsletterStatsResponse,
+  SubscriberRow,
+} from "@/lib/newsletter-types";
 
-type Subscriber = {
-  id: string;
-  email: string;
-  name: string | null;
-  createdAt: string;
-  active: boolean;
-};
+type SendAction = "top5" | "top5-test" | "recommended" | "recommended-test";
 
-export default function AdminPage() {
+const PAGE_SIZE = 25;
+const DEFAULT_FILTERS: EmailLogFilters = { status: "all", kind: "all", query: "" };
+
+export default function AdminNewsletterPage() {
   const { data: session } = useSession();
-  const [isLoading, setIsLoading] = useState(false);
-  const [isTestLoading, setIsTestLoading] = useState(false);
-  const [isRecommendedLoading, setIsRecommendedLoading] = useState(false);
-  const [isRecommendedTestLoading, setIsRecommendedTestLoading] =
-    useState(false);
-  const [result, setResult] = useState<{
-    success?: boolean;
-    message?: string;
-  } | null>(null);
-  const [subscribers, setSubscribers] = useState<Subscriber[]>([]);
-  const [subscribersLoading, setSubscribersLoading] = useState(false);
+
+  const [stats, setStats] = useState<EmailStatsData | null>(null);
+  const [statsLoading, setStatsLoading] = useState(true);
+
+  const [subscribers, setSubscribers] = useState<SubscriberRow[]>([]);
+  const [subscribersLoading, setSubscribersLoading] = useState(true);
   const [subscribersError, setSubscribersError] = useState<string | null>(null);
   const [statusUpdating, setStatusUpdating] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetchSubscribers();
+  const [logs, setLogs] = useState<EmailLogRow[]>([]);
+  const [logsMeta, setLogsMeta] = useState({ total: 0, page: 1, totalPages: 1 });
+  const [logsLoading, setLogsLoading] = useState(true);
+  const [filters, setFilters] = useState<EmailLogFilters>(DEFAULT_FILTERS);
+  const [debouncedQuery, setDebouncedQuery] = useState("");
+  const [page, setPage] = useState(1);
+
+  const [sending, setSending] = useState<SendAction | null>(null);
+  const [sendResult, setSendResult] = useState<SendResult | null>(null);
+
+  const fetchStats = useCallback(async () => {
+    setStatsLoading(true);
+    try {
+      const response = await fetch("/api/admin/newsletter/stats");
+      const data: NewsletterStatsResponse = await response.json();
+      if (data.success) {
+        setStats(data.email);
+      }
+    } catch (error) {
+      console.error("Error fetching stats:", error);
+    } finally {
+      setStatsLoading(false);
+    }
   }, []);
 
-  const fetchSubscribers = async () => {
+  const fetchSubscribers = useCallback(async () => {
+    setSubscribersLoading(true);
+    setSubscribersError(null);
     try {
-      setSubscribersLoading(true);
-      setSubscribersError(null);
-
       const response = await fetch("/api/admin/newsletter/subscribers");
-
       if (!response.ok) {
         throw new Error(`Failed to fetch subscribers: ${response.statusText}`);
       }
-
       const data = await response.json();
       setSubscribers(data.subscribers || []);
     } catch (error) {
-      console.error("Error fetching subscribers:", error);
       setSubscribersError(
         error instanceof Error ? error.message : "Failed to load subscribers",
       );
     } finally {
       setSubscribersLoading(false);
     }
+  }, []);
+
+  const fetchLogs = useCallback(
+    async (pageToLoad: number, activeFilters: EmailLogFilters) => {
+      setLogsLoading(true);
+      try {
+        const params = new URLSearchParams({
+          page: String(pageToLoad),
+          pageSize: String(PAGE_SIZE),
+        });
+        if (activeFilters.status !== "all") params.set("status", activeFilters.status);
+        if (activeFilters.kind !== "all") params.set("kind", activeFilters.kind);
+        if (activeFilters.query.trim()) params.set("query", activeFilters.query.trim());
+
+        const response = await fetch(
+          `/api/admin/newsletter/logs?${params.toString()}`,
+        );
+        const data: EmailLogsResponse = await response.json();
+        if (data.success) {
+          setLogs(data.logs);
+          setLogsMeta({
+            total: data.total,
+            page: data.page,
+            totalPages: data.totalPages,
+          });
+        }
+      } catch (error) {
+        console.error("Error fetching email logs:", error);
+      } finally {
+        setLogsLoading(false);
+      }
+    },
+    [],
+  );
+
+  useEffect(() => {
+    fetchStats();
+    fetchSubscribers();
+  }, [fetchStats, fetchSubscribers]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedQuery(filters.query), 300);
+    return () => clearTimeout(timer);
+  }, [filters.query]);
+
+  useEffect(() => {
+    fetchLogs(page, {
+      status: filters.status,
+      kind: filters.kind,
+      query: debouncedQuery,
+    });
+  }, [page, filters.status, filters.kind, debouncedQuery, fetchLogs]);
+
+  const handleFiltersChange = (next: EmailLogFilters) => {
+    setFilters(next);
+    setPage(1);
   };
 
   const toggleSubscriberStatus = async (id: string, currentStatus: boolean) => {
@@ -71,9 +150,7 @@ export default function AdminPage() {
       setStatusUpdating(id);
       const response = await fetch("/api/admin/newsletter/toggle-status", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id, active: !currentStatus }),
       });
 
@@ -82,24 +159,21 @@ export default function AdminPage() {
       }
 
       const data = await response.json();
-
-      if (data.success) {
-        // Update the subscribers list with the updated status
-        setSubscribers((prev) =>
-          prev.map((subscriber) =>
-            subscriber.id === id
-              ? { ...subscriber, active: !currentStatus }
-              : subscriber,
-          ),
-        );
-        toast.success(
-          `Subscriber ${currentStatus ? "disabled" : "enabled"} successfully`,
-        );
-      } else {
+      if (!data.success) {
         throw new Error(data.error || "Failed to update status");
       }
+
+      setSubscribers((prev) =>
+        prev.map((subscriber) =>
+          subscriber.id === id
+            ? { ...subscriber, active: !currentStatus }
+            : subscriber,
+        ),
+      );
+      toast.success(
+        `Subscriber ${currentStatus ? "disabled" : "enabled"} successfully`,
+      );
     } catch (error) {
-      console.error("Error toggling subscriber status:", error);
       toast.error(
         error instanceof Error
           ? error.message
@@ -110,294 +184,127 @@ export default function AdminPage() {
     }
   };
 
-  const sendNewsletter = async () => {
+  const handleSend = async (action: SendAction) => {
+    setSending(action);
+    setSendResult(null);
+
     try {
-      setIsLoading(true);
-      setResult(null);
+      const email = session?.user?.email;
+      let url = "/api/send-newsletter";
 
-      const response = await fetch("/api/send-newsletter");
-      const data = await response.json();
-
-      setResult(data);
-    } catch (error) {
-      setResult({ success: false, message: String(error) });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const sendTestNewsletter = async () => {
-    try {
-      setIsTestLoading(true);
-      setResult(null);
-
-      if (!session?.user?.email) {
-        throw new Error("Admin user email not found.");
+      if (action === "top5-test") {
+        if (!email) throw new Error("Admin user email not found.");
+        url = `/api/send-newsletter?test=true&email=${encodeURIComponent(email)}`;
+      } else if (action === "recommended") {
+        url = "/api/send-newsletter?recommended=true";
+      } else if (action === "recommended-test") {
+        if (!email) throw new Error("Admin user email not found.");
+        url = `/api/send-newsletter?recommended=true&test=true&email=${encodeURIComponent(
+          email,
+        )}`;
       }
 
-      const response = await fetch(
-        `/api/send-newsletter?test=true&email=${session?.user?.email}`,
-      );
+      const response = await fetch(url);
       const data = await response.json();
+      setSendResult({ ...data, at: Date.now() });
 
-      setResult(data);
-    } catch (error) {
-      setResult({ success: false, message: String(error) });
-    } finally {
-      setIsTestLoading(false);
-    }
-  };
-
-  const sendRecommendedNewsletter = async () => {
-    try {
-      setIsRecommendedLoading(true);
-      setResult(null);
-
-      const response = await fetch("/api/send-newsletter?recommended=true");
-      const data = await response.json();
-
-      setResult(data);
-    } catch (error) {
-      setResult({ success: false, message: String(error) });
-    } finally {
-      setIsRecommendedLoading(false);
-    }
-  };
-
-  const sendRecommendedTestNewsletter = async () => {
-    try {
-      setIsRecommendedTestLoading(true);
-      setResult(null);
-
-      if (!session?.user?.email) {
-        throw new Error("Admin user email not found.");
+      if (data.success) {
+        toast.success(data.message || "Newsletter sent");
+        await Promise.all([fetchStats(), fetchLogs(page, filters)]);
+      } else {
+        toast.error(data.message || "Failed to send newsletter");
       }
-
-      const response = await fetch(
-        `/api/send-newsletter?recommended=true&test=true&email=${session?.user?.email}`,
-      );
-      const data = await response.json();
-
-      setResult(data);
     } catch (error) {
-      setResult({ success: false, message: String(error) });
+      const message = error instanceof Error ? error.message : String(error);
+      setSendResult({ success: false, message, at: Date.now() });
+      toast.error(message);
     } finally {
-      setIsRecommendedTestLoading(false);
+      setSending(null);
     }
+  };
+
+  const refreshAll = async () => {
+    await Promise.all([
+      fetchStats(),
+      fetchSubscribers(),
+      fetchLogs(page, filters),
+    ]);
+    toast.success("Dashboard refreshed");
   };
 
   return (
-    <div className="max-w-4xl mx-auto p-6">
-      <h1 className="text-2xl text-center font-bold items-center">
-        Newsletter Administration
-      </h1>
-
-      <div className="p-6 border-b mb-6">
-        <h2 className="text-xl font-semibold mb-4">
-          Manual Newsletter Controls
-        </h2>
-
-        <div className="flex flex-col gap-4">
-          <p className="text-gray-600 dark:text-gray-300">
-            Click the button below to manually send the newsletter for testing
-            purposes. This will send an email with the top 5 Hacker News stories
-            to the configured recipient.
+    <div className="mx-auto max-w-7xl space-y-6">
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold">Newsletter dashboard</h1>
+          <p className="text-sm text-muted-foreground">
+            Delivery metrics, send history, and subscriber management.
           </p>
+        </div>
+        <Button variant="outline" size="sm" onClick={refreshAll}>
+          <RefreshCw className="mr-2 h-4 w-4" />
+          Refresh all
+        </Button>
+      </div>
 
-          <div className="flex flex-wrap gap-4">
-            <Button
-              onClick={sendNewsletter}
-              disabled={isLoading}
-              variant={"destructive"}
-            >
-              {isLoading ? "Sending..." : "Send Top 5"}
-            </Button>
-            <Button
-              onClick={sendTestNewsletter}
-              disabled={isTestLoading}
-              variant={"outline"}
-            >
-              {isTestLoading ? "Sending..." : "Send Top 5 to Me"}
-            </Button>
-            <Button
-              onClick={sendRecommendedNewsletter}
-              disabled={isRecommendedLoading}
-              variant={"destructive"}
-            >
-              {isRecommendedLoading ? "Sending..." : "Send Recommended"}
-            </Button>
-            <Button
-              onClick={sendRecommendedTestNewsletter}
-              disabled={isRecommendedTestLoading}
-              variant={"outline"}
-            >
-              {isRecommendedTestLoading
-                ? "Sending..."
-                : "Send Recommended to Me"}
-            </Button>
-          </div>
+      <Tabs defaultValue="overview" className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="logs">Email log</TabsTrigger>
+          <TabsTrigger value="subscribers">Subscribers</TabsTrigger>
+        </TabsList>
 
-          {result && (
-            <div
-              className={`p-4 mt-4 rounded-md border flex items-start ${
-                result.success
-                  ? "bg-green-50 border-green-200 dark:bg-green-900/30 dark:border-green-800"
-                  : "bg-red-50 border-red-200 dark:bg-red-900/30 dark:border-red-800"
-              }`}
-            >
-              <div className="pl-2 pr-2 flex items-center pt-1.5 justify-center">
-                {result.success ? (
-                  <CheckCircle
-                    className="text-green-600 dark:text-green-400"
-                    size={20}
-                  />
-                ) : (
-                  <AlertCircle
-                    className="text-red-600 dark:text-red-400"
-                    size={20}
-                  />
-                )}
-              </div>
-              <div className="flex-1">
-                <h4
-                  className={`font-medium ${
-                    result.success
-                      ? "text-green-800 dark:text-green-300"
-                      : "text-red-800 dark:text-red-300"
-                  }`}
-                >
-                  {result.success
-                    ? "Newsletter Sent Successfully"
-                    : "Failed to Send Newsletter"}
-                </h4>
-                <p
-                  className={`text-sm mt-1.5 ${
-                    result.success
-                      ? "text-green-700 dark:text-green-400"
-                      : "text-red-700 dark:text-red-400"
-                  }`}
-                >
-                  {result.message}
-                </p>
-                {result.success && (
-                  <p className="text-xs text-green-600 dark:text-green-500 mt-1.5">
-                    Sent at: {new Date().toLocaleString()}
-                  </p>
-                )}
-              </div>
+        <TabsContent value="overview" className="space-y-6">
+          {statsLoading || !stats ? (
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+              {Array.from({ length: 4 }).map((_, index) => (
+                <Skeleton key={index} className="h-[120px] w-full rounded-lg" />
+              ))}
             </div>
+          ) : (
+            <>
+              <StatsCards email={stats} />
+              <EmailTypeBreakdown email={stats} />
+              <div className="grid gap-6 lg:grid-cols-3">
+                <div className="lg:col-span-2">
+                  <EmailActivityChart data={stats.daily} />
+                </div>
+                <SendControls
+                  hasAdminEmail={Boolean(session?.user?.email)}
+                  onSend={handleSend}
+                  sending={sending}
+                  result={sendResult}
+                />
+              </div>
+            </>
           )}
-        </div>
-      </div>
+        </TabsContent>
 
-      <div className="p-6 border-b mb-6">
-        <h2 className="text-xl font-semibold mb-4">Newsletter Schedule</h2>
-        <p className="text-gray-600 dark:text-gray-300">
-          The newsletter is configured to run automatically at 7:00 AM (IST)
-          every day via Vercel Cron.
-        </p>
-        <p className="mt-2 text-gray-600 dark:text-gray-300">
-          To change this schedule, edit the cron expression in{" "}
-          <code>vercel.json</code>.
-        </p>
-      </div>
+        <TabsContent value="logs">
+          <EmailLogsTable
+            logs={logs}
+            total={logsMeta.total}
+            page={logsMeta.page}
+            totalPages={logsMeta.totalPages}
+            loading={logsLoading}
+            filters={filters}
+            onFiltersChange={handleFiltersChange}
+            onPageChange={setPage}
+            onRefresh={() => fetchLogs(page, filters)}
+          />
+        </TabsContent>
 
-      <div className="p-6">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-semibold">
-            Subscribers{" "}
-            {subscribers.length > 0 && (
-              <span className="text-sm font-normal">
-                ({subscribers.length})
-              </span>
-            )}
-          </h2>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={fetchSubscribers}
-            disabled={subscribersLoading}
-          >
-            {subscribersLoading ? "Refreshing..." : "Refresh"}
-          </Button>
-        </div>
-
-        {subscribersError && (
-          <div className="p-4 mb-4 rounded-md bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200">
-            <p>{subscribersError}</p>
-          </div>
-        )}
-
-        {subscribersLoading ? (
-          <div className="text-center p-8">
-            <p className="text-gray-600 dark:text-gray-300">
-              Loading subscribers...
-            </p>
-          </div>
-        ) : subscribers.length === 0 ? (
-          <div className="text-center p-8">
-            <p className="text-gray-600 dark:text-gray-300">
-              No subscribers found.
-            </p>
-          </div>
-        ) : (
-          <div className="rounded-md border">
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-muted hover:bg-muted">
-                  <TableHead>Email</TableHead>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Subscribed On</TableHead>
-                  <TableHead className="text-center">Status</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {subscribers.map((subscriber) => (
-                  <TableRow
-                    key={subscriber.id}
-                    className={!subscriber.active ? "opacity-60" : ""}
-                  >
-                    <TableCell>{subscriber.email}</TableCell>
-                    <TableCell>{subscriber.name || "-"}</TableCell>
-                    <TableCell>
-                      {new Date(subscriber.createdAt).toLocaleDateString()}
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <span
-                        className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
-                          subscriber.active
-                            ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
-                            : "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"
-                        }`}
-                      >
-                        {subscriber.active ? "Active" : "Inactive"}
-                      </span>
-                    </TableCell>
-                    <TableCell className="text-right w-20">
-                      <div className="flex items-center justify-end">
-                        <Switch
-                          checked={subscriber.active}
-                          disabled={statusUpdating === subscriber.id}
-                          onCheckedChange={() =>
-                            toggleSubscriberStatus(
-                              subscriber.id,
-                              subscriber.active,
-                            )
-                          }
-                          aria-label={`Toggle ${
-                            subscriber.active ? "disable" : "enable"
-                          }`}
-                        />
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        )}
-      </div>
+        <TabsContent value="subscribers">
+          <SubscribersTable
+            subscribers={subscribers}
+            loading={subscribersLoading}
+            error={subscribersError}
+            statusUpdating={statusUpdating}
+            onToggle={toggleSubscriberStatus}
+            onRefresh={fetchSubscribers}
+          />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
