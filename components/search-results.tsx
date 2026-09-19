@@ -6,6 +6,7 @@ import { formatDistanceToNow } from "date-fns";
 import { ExternalLink } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
+import { useExcerpts } from "@/hooks/use-excerpts";
 import {
   Select,
   SelectContent,
@@ -63,6 +64,16 @@ export function SearchResults({ query, type }: SearchResultsProps) {
           ],
     [type], // Only recalculate when type changes
   );
+
+  // Algolia uses the HN item id as `objectID` for story hits.
+  const excerptSources = useMemo(
+    () =>
+      type === "stories"
+        ? results.map((item) => ({ id: Number(item.objectID) }))
+        : [],
+    [results, type],
+  );
+  const excerpts = useExcerpts(excerptSources);
 
   useEffect(() => {
     // Reset page when sort changes
@@ -190,7 +201,11 @@ export function SearchResults({ query, type }: SearchResultsProps) {
         <div className="space-y-0">
           {results.map((item) =>
             type === "stories" ? (
-              <StoryResult key={item.objectID} item={item} />
+              <StoryResult
+                key={item.objectID}
+                item={item}
+                excerpt={excerpts[Number(item.objectID)]}
+              />
             ) : (
               <CommentResult key={item.objectID} item={item} />
             ),
@@ -217,9 +232,10 @@ export function SearchResults({ query, type }: SearchResultsProps) {
 
 interface StoryResultProps {
   item: SearchHit;
+  excerpt?: string;
 }
 
-function StoryResult({ item }: StoryResultProps) {
+function StoryResult({ item, excerpt }: StoryResultProps) {
   const domain = item.url
     ? new URL(item.url).hostname.replace(/^www\./, "")
     : null;
@@ -254,6 +270,11 @@ function StoryResult({ item }: StoryResultProps) {
               </Link>
             )}
           </div>
+          {excerpt && (
+            <p className="mt-1 text-sm text-muted-foreground break-words">
+              {excerpt}
+            </p>
+          )}
           <div className="mt-1 text-xs text-muted-foreground flex flex-wrap items-center">
             <span>{item.points || 0} points</span>
             <span className="mx-1">•</span>

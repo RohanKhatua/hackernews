@@ -110,3 +110,59 @@ model StoryInteraction {
   @@index([readerId, updatedAt])
   @@index([storyId])
 }
+
+/**
+ * A normalized news story ingested from one of the configured sources
+ * (see lib/sources). HN stories keep their numeric item id as externalId;
+ * every article also gets a unique slug used by /story/[slug].
+ */
+model Article {
+  id           String           @id @default(cuid())
+  sourceId     String
+  externalId   String
+  slug         String           @unique
+  title        String
+  url          String?
+  text         String?
+  excerpt      String?
+  author       String?
+  sourceLabel  String?
+  domain       String?
+  categories   String[]
+  score        Int?
+  commentCount Int?
+  publishedAt  DateTime
+  ingestedAt   DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+  keywords     ArticleKeyword[]
+
+  @@unique([sourceId, externalId])
+  @@index([categories(ops: ArrayOps)], type: Gin)
+  @@index([sourceId, publishedAt])
+  @@index([publishedAt])
+}
+
+/**
+ * A normalized keyword extracted from article titles/excerpts (see
+ * lib/keywords.ts). Each term powers a /topics/[slug] landing page.
+ */
+model Keyword {
+  id           String           @id @default(cuid())
+  term         String           @unique
+  slug         String           @unique
+  articleCount Int              @default(0)
+  updatedAt    DateTime         @updatedAt
+  articles     ArticleKeyword[]
+}
+
+/** Weighted article <-> keyword link built during ingestion. */
+model ArticleKeyword {
+  articleId String
+  keywordId String
+  weight    Float
+  article   Article @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  keyword   Keyword @relation(fields: [keywordId], references: [id], onDelete: Cascade)
+
+  @@id([articleId, keywordId])
+  @@index([keywordId, weight])
+}

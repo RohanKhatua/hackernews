@@ -1,13 +1,35 @@
-import { Header } from "@/components/header"
-import { StoryList } from "@/components/story-list"
+import type { Metadata } from "next";
+import { Header } from "@/components/header";
+import { StoryFeed } from "@/components/story-feed";
+import { buildFeedMetadata } from "@/lib/feed-metadata";
+import { parsePageParam } from "@/lib/paths";
 
-export default function NewestPage() {
-  return (
-    <div className="min-h-screen flex flex-col">
-      <Header />
-      <main className="flex-1 container max-w-4xl py-6">
-        <StoryList type="new" />
-      </main>
-    </div>
-  )
+export const revalidate = 300;
+
+type SearchParams = Promise<Record<string, string | string[] | undefined>>;
+
+export async function generateMetadata({
+	searchParams,
+}: {
+	searchParams: SearchParams;
+}): Promise<Metadata> {
+	const { page } = await searchParams;
+	return buildFeedMetadata("new", parsePageParam(page));
+}
+
+export default async function NewestPage({
+	searchParams,
+}: {
+	searchParams: SearchParams;
+}) {
+	const { page } = await searchParams;
+
+	return (
+		<div className="min-h-screen flex flex-col">
+			<Header />
+			<main className="flex-1 container max-w-4xl py-6">
+				<StoryFeed category="new" page={parsePageParam(page)} heading="Newest stories" />
+			</main>
+		</div>
+	);
 }

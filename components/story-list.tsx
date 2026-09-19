@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { StoryItem } from "@/components/story-item";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
+import { useExcerpts } from "@/hooks/use-excerpts";
 import type { HackerNewsStory } from "@/lib/hn";
 
 interface StoryListProps {
@@ -18,6 +19,7 @@ export function StoryList({ type = "top", limit = 30 }: StoryListProps) {
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const storiesPerPage = limit;
+  const excerpts = useExcerpts(stories);
 
   const handleDismiss = (storyId: number) => {
     setDismissedIds((prev) => new Set(prev).add(storyId));
@@ -138,6 +140,7 @@ export function StoryList({ type = "top", limit = 30 }: StoryListProps) {
               by={story.by || "unknown"}
               time={story.time || 0}
               descendants={story.descendants || 0}
+              excerpt={excerpts[story.id]}
               index={(page - 1) * storiesPerPage + index + 1}
               onDismiss={handleDismiss}
             />

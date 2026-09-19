@@ -1,0 +1,13 @@
+name = "hackernews-cron"
+main = "worker.js"
+compatibility_date = "2025-01-01"
+
+# One entry per job in cloudflare/worker.js (keyed by the expression).
+[triggers]
+crons = ["*/30 * * * *"]
+# Moving the newsletter crons off Vercel? Uncomment these and remove the
+# matching entries from vercel.json:
+# crons = ["*/30 * * * *", "30 1 * * *", "30 2 * * 1"]
+
+[observability]
+enabled = true

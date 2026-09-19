@@ -1,5 +1,14 @@
 import { Header } from "@/components/header";
 import { RecommendedStoryList } from "@/components/recommended-story-list";
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "Recommended",
+  description:
+    "Personalized tech stories and discussions ranked from your reading history.",
+  robots: { index: false, follow: true },
+  alternates: { canonical: "/recommended" },
+};
 
 const CLAIM_MESSAGES: Record<string, string> = {
   claimed:

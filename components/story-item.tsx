@@ -7,6 +7,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 
 interface StoryItemProps {
+  /** Numeric HN item id; 0 for articles from other sources. */
   id: number;
   title: string;
   url?: string;
@@ -14,9 +15,22 @@ interface StoryItemProps {
   by: string;
   time: number;
   descendants: number;
+  /** Short excerpt of the linked article, when one is available. */
+  excerpt?: string;
+  /** Internal permalink (e.g. /story/[slug]). Defaults to /item/[id]. */
+  href?: string;
   index?: number;
   /** Called after a dismiss is recorded, so lists can drop the row. */
   onDismiss?: (storyId: number) => void;
+}
+
+function safeDomain(url?: string): string | null {
+  if (!url) return null;
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return null;
+  }
 }
 
 export function StoryItem({
@@ -27,6 +41,8 @@ export function StoryItem({
   by,
   time,
   descendants,
+  excerpt,
+  href,
   index,
   onDismiss,
 }: StoryItemProps) {
@@ -34,14 +50,18 @@ export function StoryItem({
   const [dismissed, setDismissed] = useState(false);
   const [isLiking, setIsLiking] = useState(false);
   const [isDismissing, setIsDismissing] = useState(false);
-  const domain = url ? new URL(url).hostname.replace(/^www\./, "") : null;
+  const domain = safeDomain(url);
   const formattedTime = formatDistanceToNow(new Date(time * 1000), {
     addSuffix: true,
   });
   const story = { id, title, url, score, by, time, descendants };
+  const internalPath = href ?? `/item/${id}`;
+  // Non-HN articles have no numeric HN id, so personalization is skipped.
+  const canInteract = id > 0;
 
   // Identity is carried by the httpOnly reader cookie, not the payload.
   const recordInteraction = async (type: "read" | "like" | "dismiss") => {
+    if (!canInteract) return;
     try {
       await fetch("/api/interactions", {
         method: "POST",
@@ -94,7 +114,7 @@ export function StoryItem({
         <div className="flex-1 min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <Link
-              href={url || `/item/${id}`}
+              href={url || internalPath}
               className="text-foreground font-medium text-base sm:text-lg break-words hover:text-primary"
               target={url ? "_blank" : undefined}
               rel={url ? "noopener noreferrer" : undefined}
@@ -117,6 +137,11 @@ export function StoryItem({
               </Link>
             )}
           </div>
+          {excerpt && (
+            <p className="mt-1 text-sm text-muted-foreground break-words">
+              {excerpt}
+            </p>
+          )}
           <div className="mt-1 text-sm text-muted-foreground flex flex-wrap items-center">
             <span>{score} points</span>
             <span className="mx-1">•</span>
@@ -126,35 +151,39 @@ export function StoryItem({
             <span className="mx-1">•</span>
             <span>{formattedTime}</span>
             <span className="mx-1">•</span>
-            <Link href={`/item/${id}`} className="hover:text-primary">
+            <Link href={internalPath} className="hover:text-primary">
               {descendants} {descendants === 1 ? "comment" : "comments"}
             </Link>
-            <span className="mx-1">•</span>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              disabled={isLiking || liked}
-              onClick={likeStory}
-              className="h-6 px-1 text-muted-foreground hover:text-primary"
-            >
-              <Heart
-                className="h-3.5 w-3.5"
-                fill={liked ? "currentColor" : "none"}
-              />
-              <span className="sr-only">Like story</span>
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              disabled={isDismissing}
-              onClick={dismissStory}
-              className="h-6 px-1 text-muted-foreground hover:text-primary"
-            >
-              <X className="h-3.5 w-3.5" />
-              <span className="sr-only">Show fewer stories like this</span>
-            </Button>
+            {canInteract && (
+              <>
+                <span className="mx-1">•</span>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  disabled={isLiking || liked}
+                  onClick={likeStory}
+                  className="h-6 px-1 text-muted-foreground hover:text-primary"
+                >
+                  <Heart
+                    className="h-3.5 w-3.5"
+                    fill={liked ? "currentColor" : "none"}
+                  />
+                  <span className="sr-only">Like story</span>
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  disabled={isDismissing}
+                  onClick={dismissStory}
+                  className="h-6 px-1 text-muted-foreground hover:text-primary"
+                >
+                  <X className="h-3.5 w-3.5" />
+                  <span className="sr-only">Show fewer stories like this</span>
+                </Button>
+              </>
+            )}
           </div>
         </div>
       </div>

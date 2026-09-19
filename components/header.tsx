@@ -76,6 +76,12 @@ export function Header() {
                   jobs
                 </Link>
                 <Link
+                  href="/topics"
+                  className={`text-base py-2 px-4 rounded-md hover:bg-secondary ${isActive("/topics") ? "font-medium" : "text-muted-foreground"}`}
+                >
+                  topics
+                </Link>
+                <Link
                   href="/search"
                   className={`text-base py-2 px-4 rounded-md hover:bg-secondary ${isActive("/search") ? "font-medium" : "text-muted-foreground"}`}
                 >
@@ -156,6 +162,12 @@ export function Header() {
               className={`transition-colors hover:text-primary ${isActive("/jobs") ? "text-primary" : "text-muted-foreground"}`}
             >
               jobs
+            </Link>
+            <Link
+              href="/topics"
+              className={`transition-colors hover:text-primary ${isActive("/topics") ? "text-primary" : "text-muted-foreground"}`}
+            >
+              topics
             </Link>
             <Link
               href="/recommended"
