@@ -20,7 +20,8 @@ import type { EmailActivityPointData } from "@/lib/newsletter-types";
 
 const chartConfig = {
   sent: { label: "Sent", color: "hsl(var(--chart-3))" },
-  failed: { label: "Failed", color: "hsl(var(--chart-4))" },
+  // Red, not the neighbouring green chart token, so failures stand out from sent.
+  failed: { label: "Failed", color: "hsl(var(--destructive))" },
   undeliverable: {
     label: "Bounced / complained",
     color: "hsl(var(--chart-5))",
