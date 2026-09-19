@@ -34,9 +34,22 @@ export async function GET(request: NextRequest) {
       const emailReaderId = `email:${subscriberId}`;
       await ensureReader(emailReaderId, subscriberId);
 
-      // Only allow http(s) destinations — the token is signed, but stay
-      // strict about where a link may send the reader.
-      const target = to && /^https?:\/\//i.test(to) ? to : fallback;
+      // The email stores the destination as base64url so query strings and
+      // ampersands cannot be rewritten by email clients. Decode it before
+      // redirecting, and only allow absolute http(s) URLs.
+      let target = fallback;
+      if (to) {
+        try {
+          const decoded = Buffer.from(to, "base64url").toString("utf8");
+          const destination = new URL(decoded);
+          if (destination.protocol === "http:" || destination.protocol === "https:") {
+            target = destination.toString();
+          }
+        } catch {
+          // Keep the safe story fallback for malformed destinations.
+        }
+      }
+
       const story: HackerNewsStory | null = await fetchStory(storyId);
 
       if (story?.id && story.title) {
