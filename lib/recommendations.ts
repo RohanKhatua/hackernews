@@ -34,26 +34,30 @@ const STOP_WORDS = new Set([
   "using",
 ]);
 
-type InteractionInput = {
-  readerId: string;
-  subscriberId?: string;
-  userId?: string;
-  story: HackerNewsStory;
-  type: "read" | "like" | "dismiss";
-};
-
 type WeightedProfile = {
   terms: Map<string, number>;
   domains: Map<string, number>;
   authors: Map<string, number>;
   seenStoryIds: Set<number>;
   dismissedStoryIds: Set<number>;
+  /** Number of distinct stories behind the profile — drives cold start. */
+  distinctStoryCount: number;
 };
 
 export type RecommendedStory = HackerNewsStory & {
   recommendationScore: number;
   recommendationReasons: string[];
 };
+
+/** Explicit, tunable signal weights for interaction types. */
+const SIGNAL_WEIGHTS = {
+  read: 2,
+  like: 5,
+  dismiss: -6,
+} as const;
+
+/** A profile with fewer distinct stories than this is treated as cold start. */
+const COLD_START_MIN_STORIES = 5;
 
 function tokenize(title: string) {
   return title
@@ -73,21 +77,37 @@ function bump(
   map.set(key, (map.get(key) ?? 0) + amount);
 }
 
-function interactionWeight(type: InteractionInput["type"]) {
-  if (type === "like") return 5;
-  if (type === "dismiss") return -6;
-  return 2;
+function interactionWeight(type: "read" | "like" | "dismiss") {
+  if (type === "like") return SIGNAL_WEIGHTS.like;
+  if (type === "dismiss") return SIGNAL_WEIGHTS.dismiss;
+  return SIGNAL_WEIGHTS.read;
 }
 
 export async function recordStoryInteraction({
   readerId,
-  subscriberId,
-  userId,
   story,
   type,
-}: InteractionInput) {
+  subscriberId,
+}: {
+  readerId: string;
+  story: HackerNewsStory;
+  type: "read" | "like" | "dismiss";
+  /** Optional: pins this reader to a subscriber at write time (email clicks). */
+  subscriberId?: string;
+}) {
   const domain = getStoryDomain(story.url);
   const weight = interactionWeight(type);
+
+  // The Reader row must exist before the interaction insert (FK), so this
+  // is sequenced, not parallel. Cheap primary-key upsert.
+  const reader = await prisma.reader.upsert({
+    where: { id: readerId },
+    create: { id: readerId, subscriberId },
+    update: subscriberId
+      ? { subscriberId, lastSeenAt: new Date() }
+      : { lastSeenAt: new Date() },
+  });
+  void reader;
 
   return prisma.storyInteraction.upsert({
     where: {
@@ -99,8 +119,6 @@ export async function recordStoryInteraction({
     },
     create: {
       readerId,
-      subscriberId,
-      userId,
       storyId: story.id,
       type,
       weight,
@@ -115,8 +133,6 @@ export async function recordStoryInteraction({
     update: {
       count: { increment: 1 },
       weight,
-      subscriberId,
-      userId,
       storyTitle: story.title,
       storyUrl: story.url,
       storyBy: story.by,
@@ -131,23 +147,32 @@ export async function recordStoryInteraction({
 async function buildProfile({
   readerId,
   subscriberId,
-  userId,
 }: {
   readerId?: string;
   subscriberId?: string;
-  userId?: string;
 }): Promise<WeightedProfile> {
-  const interactions = await prisma.storyInteraction.findMany({
-    where: {
-      OR: [
-        ...(readerId ? [{ readerId }] : []),
-        ...(subscriberId ? [{ subscriberId }] : []),
-        ...(userId ? [{ userId }] : []),
-      ],
-    },
-    orderBy: { updatedAt: "desc" },
-    take: 250,
-  });
+  // A subscriber's profile spans every Reader linked to it — each browser
+  // they've subscribed or claimed from, plus their synthetic email-click
+  // reader (`email:<subscriberId>`).
+  const readerIds = subscriberId
+    ? (
+        await prisma.reader.findMany({
+          where: { subscriberId },
+          select: { id: true },
+        })
+      ).map((reader) => reader.id)
+    : readerId
+      ? [readerId]
+      : [];
+
+  const interactions =
+    readerIds.length > 0
+      ? await prisma.storyInteraction.findMany({
+          where: { readerId: { in: readerIds } },
+          orderBy: { updatedAt: "desc" },
+          take: 250,
+        })
+      : [];
 
   const profile: WeightedProfile = {
     terms: new Map(),
@@ -155,6 +180,7 @@ async function buildProfile({
     authors: new Map(),
     seenStoryIds: new Set(),
     dismissedStoryIds: new Set(),
+    distinctStoryCount: 0,
   };
 
   for (const interaction of interactions) {
@@ -179,6 +205,8 @@ async function buildProfile({
     bump(profile.authors, interaction.storyBy, amount);
   }
 
+  profile.distinctStoryCount = profile.seenStoryIds.size;
+
   return profile;
 }
 
@@ -190,7 +218,17 @@ function topMatches(map: Map<string, number>, values: string[]) {
     .slice(0, 2);
 }
 
-function scoreStory(story: HackerNewsStory, profile: WeightedProfile) {
+/** Raw HN momentum: the popularity part of the score. */
+function momentumScore(story: HackerNewsStory) {
+  const hnScore = Math.log10((story.score ?? 0) + 10) * 1.8;
+  const commentScore = Math.log10((story.descendants ?? 0) + 10);
+  const ageHours = story.time ? (Date.now() / 1000 - story.time) / 3600 : 72;
+  const freshness = Math.max(0, 3 - ageHours / 18);
+
+  return hnScore + commentScore + freshness;
+}
+
+function scoreStory(story: HackerNewsStory, profile: WeightedProfile, coldStart: boolean) {
   const domain = getStoryDomain(story.url);
   const terms = tokenize(story.title);
   const termScore = terms.reduce(
@@ -199,21 +237,17 @@ function scoreStory(story: HackerNewsStory, profile: WeightedProfile) {
   );
   const domainScore = domain ? (profile.domains.get(domain) ?? 0) : 0;
   const authorScore = story.by ? (profile.authors.get(story.by) ?? 0) : 0;
-  const hnScore = Math.log10((story.score ?? 0) + 10) * 1.8;
-  const commentScore = Math.log10((story.descendants ?? 0) + 10);
-  const ageHours = story.time ? (Date.now() / 1000 - story.time) / 3600 : 72;
-  const freshness = Math.max(0, 3 - ageHours / 18);
   const seenPenalty = profile.seenStoryIds.has(story.id) ? 8 : 0;
 
-  return (
-    termScore * 0.45 +
-    domainScore * 0.8 +
-    authorScore * 0.5 +
-    hnScore +
-    commentScore +
-    freshness -
-    seenPenalty
-  );
+  const personalScore =
+    termScore * 0.45 + domainScore * 0.8 + authorScore * 0.5;
+  const momentum = momentumScore(story);
+
+  // Cold start: not enough signal to trust personalization, so blend it
+  // evenly with popularity instead of letting term scores swing the list.
+  return coldStart
+    ? (personalScore + momentum) / 2 - seenPenalty
+    : personalScore + momentum - seenPenalty;
 }
 
 function recommendationReasons(
@@ -248,15 +282,14 @@ function recommendationReasons(
 export async function getRecommendedStories({
   readerId,
   subscriberId,
-  userId,
   limit = 10,
 }: {
   readerId?: string;
   subscriberId?: string;
-  userId?: string;
   limit?: number;
-}) {
-  const profile = await buildProfile({ readerId, subscriberId, userId });
+}): Promise<{ stories: RecommendedStory[]; coldStart: boolean }> {
+  const profile = await buildProfile({ readerId, subscriberId });
+  const coldStart = profile.distinctStoryCount < COLD_START_MIN_STORIES;
   const [topIds, bestIds, newIds, showIds, askIds] = await Promise.all([
     fetchStoryIds("top"),
     fetchStoryIds("best"),
@@ -275,15 +308,17 @@ export async function getRecommendedStories({
   );
   const stories = await fetchStories(candidateIds);
 
-  return stories
+  const ranked = stories
     .filter((story) => !profile.dismissedStoryIds.has(story.id))
     .map((story) => ({
       ...story,
-      recommendationScore: scoreStory(story, profile),
+      recommendationScore: scoreStory(story, profile, coldStart),
       recommendationReasons: recommendationReasons(story, profile),
     }))
     .sort((a, b) => b.recommendationScore - a.recommendationScore)
     .slice(0, limit);
+
+  return { stories: ranked, coldStart };
 }
 
 export async function getRecommendedStoriesForEmail(email: string, limit = 5) {
@@ -299,5 +334,9 @@ export async function getRecommendedStoriesForEmail(email: string, limit = 5) {
     }));
   }
 
-  return getRecommendedStories({ subscriberId: subscriber.id, limit });
+  const { stories } = await getRecommendedStories({
+    subscriberId: subscriber.id,
+    limit,
+  });
+  return stories;
 }

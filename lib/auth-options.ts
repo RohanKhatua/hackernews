@@ -1,11 +1,11 @@
-import { PrismaAdapter } from "@next-auth/prisma-adapter";
 import { prisma } from "@/lib/db";
 import CredentialsProvider from "next-auth/providers/credentials";
 import bcrypt from "bcrypt";
 import { NextAuthOptions } from "next-auth";
 
+// The Admin model backs NextAuth's session "user" (NextAuth's own vocabulary).
+// No database adapter: sessions are JWT and login is credentials-only.
 export const authOptions: NextAuthOptions = {
-  adapter: PrismaAdapter(prisma),
   providers: [
     CredentialsProvider({
       name: "Credentials",
@@ -18,19 +18,19 @@ export const authOptions: NextAuthOptions = {
           return null;
         }
 
-        const user = await prisma.user.findUnique({
+        const admin = await prisma.admin.findUnique({
           where: {
             email: credentials.email,
           },
         });
 
-        if (!user || !user.password) {
+        if (!admin || !admin.password) {
           return null;
         }
 
         const passwordMatch = await bcrypt.compare(
           credentials.password,
-          user.password,
+          admin.password,
         );
 
         if (!passwordMatch) {
@@ -38,10 +38,10 @@ export const authOptions: NextAuthOptions = {
         }
 
         return {
-          id: user.id,
-          email: user.email,
-          name: user.name,
-          role: user.role,
+          id: admin.id,
+          email: admin.email,
+          name: admin.name,
+          role: admin.role,
         };
       },
     }),

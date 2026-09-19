@@ -14,9 +14,14 @@ interface StoryListProps {
 export function StoryList({ type = "top", limit = 30 }: StoryListProps) {
   const [storyIds, setStoryIds] = useState<number[]>([]);
   const [stories, setStories] = useState<HackerNewsStory[]>([]);
+  const [dismissedIds, setDismissedIds] = useState<Set<number>>(new Set());
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const storiesPerPage = limit;
+
+  const handleDismiss = (storyId: number) => {
+    setDismissedIds((prev) => new Set(prev).add(storyId));
+  };
 
   useEffect(() => {
     const fetchStoryIds = async () => {
@@ -121,19 +126,22 @@ export function StoryList({ type = "top", limit = 30 }: StoryListProps) {
   return (
     <div>
       <div className="space-y-0">
-        {stories.map((story, index) => (
-          <StoryItem
-            key={story.id}
-            id={story.id}
-            title={story.title}
-            url={story.url}
-            score={story.score || 0}
-            by={story.by || "unknown"}
-            time={story.time || 0}
-            descendants={story.descendants || 0}
-            index={(page - 1) * storiesPerPage + index + 1}
-          />
-        ))}
+        {stories
+          .filter((story) => !dismissedIds.has(story.id))
+          .map((story, index) => (
+            <StoryItem
+              key={story.id}
+              id={story.id}
+              title={story.title}
+              url={story.url}
+              score={story.score || 0}
+              by={story.by || "unknown"}
+              time={story.time || 0}
+              descendants={story.descendants || 0}
+              index={(page - 1) * storiesPerPage + index + 1}
+              onDismiss={handleDismiss}
+            />
+          ))}
       </div>
 
       <div className="flex justify-between mt-6">

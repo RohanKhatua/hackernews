@@ -124,12 +124,33 @@ export async function getSubscriberByEmail(email: string) {
   return prisma.subscriber.findUnique({ where: { email: normalizeEmail(email) } });
 }
 
+/**
+ * Creates the Reader row for a browser identity if it does not exist yet.
+ * Safe to call on every interaction.
+ */
+export async function ensureReader(
+  readerId: string,
+  subscriberId?: string,
+) {
+  return prisma.reader.upsert({
+    where: { id: readerId },
+    create: { id: readerId, subscriberId },
+    update: subscriberId ? { subscriberId } : {},
+  });
+}
+
+/**
+ * Binds a browser identity to a subscriber. Existing interactions stay keyed
+ * by readerId, so linking is instant and lossless — the reader simply gains a
+ * subscriberId and future profile builds pick it up.
+ */
 export async function linkReaderToSubscriber(
   readerId: string,
   subscriberId: string,
 ) {
-  return prisma.storyInteraction.updateMany({
-    where: { readerId },
+  await ensureReader(readerId, subscriberId);
+  return prisma.reader.update({
+    where: { id: readerId },
     data: { subscriberId },
   });
 }

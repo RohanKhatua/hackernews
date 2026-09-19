@@ -2,11 +2,11 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { addSubscriber } from "@/lib/db";
 import { sendConfirmationEmail } from "@/lib/email-utils";
+import { getReaderId } from "@/lib/reader-cookie";
 
 const subscribeSchema = z.object({
   email: z.string().trim().email().max(254),
   name: z.string().trim().max(100).optional(),
-  readerId: z.string().trim().max(100).optional(),
 });
 
 export async function POST(request: Request) {
@@ -21,8 +21,11 @@ export async function POST(request: Request) {
       );
     }
 
-    const { email, name, readerId } = parsed.data;
-    const result = await addSubscriber(email, name, readerId);
+    const { email, name } = parsed.data;
+    // The subscribing browser is linked to the new subscriber so its existing
+    // interaction history shapes future recommendations.
+    const readerId = await getReaderId();
+    const result = await addSubscriber(email, name, readerId ?? undefined);
 
     if (!result.success) {
       return NextResponse.json(

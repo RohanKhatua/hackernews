@@ -1,25 +1,35 @@
 import { NextRequest, NextResponse } from "next/server";
 import { fetchStory } from "@/lib/hn";
 import { recordStoryInteraction } from "@/lib/recommendations";
+import { getReaderId } from "@/lib/reader-cookie";
 
 const allowedTypes = new Set(["read", "like", "dismiss"]);
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
-    const storyId = Number(body.storyId);
-    const type = String(body.type ?? "read");
-    const readerId = String(body.readerId ?? "");
+    const body = await request.json().catch(() => null);
+    const storyId = Number(body?.storyId);
+    const type = String(body?.type ?? "read");
 
-    if (!readerId || !Number.isFinite(storyId) || !allowedTypes.has(type)) {
+    if (!Number.isFinite(storyId) || !allowedTypes.has(type)) {
       return NextResponse.json(
         { success: false, message: "Invalid interaction payload" },
         { status: 400 },
       );
     }
 
+    // Identity comes from the httpOnly cookie set by middleware — the client
+    // cannot claim an arbitrary reader id.
+    const readerId = await getReaderId();
+    if (!readerId) {
+      return NextResponse.json(
+        { success: false, message: "Missing reader cookie" },
+        { status: 400 },
+      );
+    }
+
     const story =
-      body.story?.id && body.story?.title
+      body?.story?.id && body?.story?.title
         ? body.story
         : await fetchStory(storyId);
 

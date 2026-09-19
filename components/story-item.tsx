@@ -1,11 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { ExternalLink, Heart } from "lucide-react";
+import { ExternalLink, Heart, X } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { getReaderId } from "@/lib/reader-id";
 
 interface StoryItemProps {
   id: number;
@@ -16,6 +15,8 @@ interface StoryItemProps {
   time: number;
   descendants: number;
   index?: number;
+  /** Called after a dismiss is recorded, so lists can drop the row. */
+  onDismiss?: (storyId: number) => void;
 }
 
 export function StoryItem({
@@ -27,25 +28,26 @@ export function StoryItem({
   time,
   descendants,
   index,
+  onDismiss,
 }: StoryItemProps) {
   const [liked, setLiked] = useState(false);
+  const [dismissed, setDismissed] = useState(false);
   const [isLiking, setIsLiking] = useState(false);
+  const [isDismissing, setIsDismissing] = useState(false);
   const domain = url ? new URL(url).hostname.replace(/^www\./, "") : null;
   const formattedTime = formatDistanceToNow(new Date(time * 1000), {
     addSuffix: true,
   });
   const story = { id, title, url, score, by, time, descendants };
 
-  const recordInteraction = async (type: "read" | "like") => {
-    const readerId = getReaderId();
-    if (!readerId) return;
-
+  // Identity is carried by the httpOnly reader cookie, not the payload.
+  const recordInteraction = async (type: "read" | "like" | "dismiss") => {
     try {
       await fetch("/api/interactions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         keepalive: true,
-        body: JSON.stringify({ readerId, storyId: id, type, story }),
+        body: JSON.stringify({ storyId: id, type, story }),
       });
     } catch (error) {
       console.error("Error recording interaction:", error);
@@ -63,6 +65,21 @@ export function StoryItem({
       setIsLiking(false);
     }
   };
+
+  const dismissStory = async () => {
+    if (isDismissing || dismissed) return;
+
+    try {
+      setIsDismissing(true);
+      await recordInteraction("dismiss");
+      setDismissed(true);
+      onDismiss?.(id);
+    } finally {
+      setIsDismissing(false);
+    }
+  };
+
+  if (dismissed) return null;
 
   return (
     <div className="py-3 border-b border-border/40 last:border-0">
@@ -126,6 +143,17 @@ export function StoryItem({
                 fill={liked ? "currentColor" : "none"}
               />
               <span className="sr-only">Like story</span>
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              disabled={isDismissing}
+              onClick={dismissStory}
+              className="h-6 px-1 text-muted-foreground hover:text-primary"
+            >
+              <X className="h-3.5 w-3.5" />
+              <span className="sr-only">Show fewer stories like this</span>
             </Button>
           </div>
         </div>

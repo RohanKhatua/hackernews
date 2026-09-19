@@ -1,10 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { fetchTopStories } from "@/lib/server-utils";
-import {
-  sendEmail,
-  formatNewsletter,
-  sendRecommendedEmail,
-} from "@/lib/email-utils";
+import { sendTop5Email, sendRecommendedEmail } from "@/lib/email-utils";
 import { getAdminUser } from "@/lib/auth-utils";
 import { headers } from "next/headers";
 
@@ -61,47 +56,8 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Authentication successful (admin, cron, or API key), proceed with newsletter sending
-    if (isRecommended) {
-      const result = await sendRecommendedEmail(isTest ? email! : undefined);
-
-      if (!result.success) {
-        return NextResponse.json(
-          { success: false, message: result.message },
-          { status: 500 },
-        );
-      }
-
-      return NextResponse.json({
-        success: true,
-        message: result.message,
-      });
-    }
-
-    // Fetch the top 5 stories
-    const stories = await fetchTopStories(5);
-
-    if (stories.length === 0) {
-      return NextResponse.json(
-        { success: false, message: "Failed to fetch stories" },
-        { status: 500 },
-      );
-    }
-
-    // Format the stories into an HTML email
-    const htmlContent = await formatNewsletter(stories);
-
-    // Send the email to all subscribers
-    const date = new Date().toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-    });
-
-    const result = await sendEmail(
-      `Hacker News Top 5 - ${date}`,
-      htmlContent,
-      isTest ? email! : undefined,
-    );
+    const send = isRecommended ? sendRecommendedEmail : sendTop5Email;
+    const result = await send(isTest ? email! : undefined);
 
     if (!result.success) {
       return NextResponse.json(

@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json(
-      { success: true, userId: result.userId },
+      { success: true, adminId: result.adminId },
       { status: 201 },
     );
   } catch (error: unknown) {

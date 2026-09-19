@@ -5,7 +5,6 @@ import { Header } from "@/components/header";
 import { StoryItem } from "@/components/story-item";
 import { Comment } from "@/components/comment";
 import { Skeleton } from "@/components/ui/skeleton";
-import { getReaderId } from "@/lib/reader-id";
 import type { HackerNewsStory } from "@/lib/hn";
 
 export default function ItemPage({
@@ -38,15 +37,13 @@ export default function ItemPage({
 
   useEffect(() => {
     if (!story?.id) return;
-    const readerId = getReaderId();
-    if (!readerId) return;
 
+    // Identity comes from the httpOnly reader cookie (set by middleware).
     fetch("/api/interactions", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       keepalive: true,
       body: JSON.stringify({
-        readerId,
         storyId: story.id,
         type: "read",
         story,

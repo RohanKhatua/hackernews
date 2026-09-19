@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { StoryItem } from "@/components/story-item";
 import { Skeleton } from "@/components/ui/skeleton";
-import { getReaderId } from "@/lib/reader-id";
 
 type RecommendedStory = {
   id: number;
@@ -18,6 +17,7 @@ type RecommendedStory = {
 
 export function RecommendedStoryList() {
   const [stories, setStories] = useState<RecommendedStory[]>([]);
+  const [coldStart, setColdStart] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -26,18 +26,8 @@ export function RecommendedStoryList() {
       try {
         setLoading(true);
         setError(null);
-        const readerId = getReaderId();
-
-        if (!readerId) {
-          setError(
-            "Read or like a few stories to start your recommendation history.",
-          );
-          return;
-        }
-
-        const response = await fetch(
-          `/api/recommendations?readerId=${encodeURIComponent(readerId)}`,
-        );
+        // Identity comes from the reader cookie set by middleware.
+        const response = await fetch("/api/recommendations");
 
         if (!response.ok) {
           throw new Error("Failed to load recommendations");
@@ -45,6 +35,7 @@ export function RecommendedStoryList() {
 
         const data = await response.json();
         setStories(data.stories ?? []);
+        setColdStart(Boolean(data.coldStart));
       } catch (error) {
         console.error("Error loading recommendations:", error);
         setError(
@@ -59,6 +50,10 @@ export function RecommendedStoryList() {
 
     fetchRecommendations();
   }, []);
+
+  const handleDismiss = (storyId: number) => {
+    setStories((prev) => prev.filter((story) => story.id !== storyId));
+  };
 
   if (loading) {
     return (
@@ -91,6 +86,12 @@ export function RecommendedStoryList() {
 
   return (
     <div className="space-y-0">
+      {coldStart && (
+        <p className="pb-3 text-xs text-muted-foreground">
+          Popular today — this list gets personal as you read, like, or dismiss
+          more stories.
+        </p>
+      )}
       {stories.map((story, index) => (
         <div key={story.id}>
           <StoryItem
@@ -102,6 +103,7 @@ export function RecommendedStoryList() {
             time={story.time ?? Math.floor(Date.now() / 1000)}
             descendants={story.descendants ?? 0}
             index={index + 1}
+            onDismiss={handleDismiss}
           />
           {story.recommendationReasons &&
             story.recommendationReasons.length > 0 && (

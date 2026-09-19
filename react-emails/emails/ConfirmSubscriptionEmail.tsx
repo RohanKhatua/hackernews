@@ -5,6 +5,7 @@ import {
   Head,
   Heading,
   Html,
+  Link,
   Preview,
   Section,
   Text,
@@ -14,11 +15,14 @@ import {
 interface ConfirmSubscriptionEmailProps {
   name?: string;
   confirmUrl: string;
+  /** Magic link binding this browser's reading history to the subscription. */
+  claimUrl?: string | null;
 }
 
 export const ConfirmSubscriptionEmail = ({
   name,
   confirmUrl,
+  claimUrl,
 }: ConfirmSubscriptionEmailProps) => {
   return (
     <Tailwind>
@@ -55,6 +59,18 @@ export const ConfirmSubscriptionEmail = ({
                 Confirm subscription
               </Button>
             </Section>
+
+            {claimUrl && (
+              <Section className="text-center mb-8">
+                <Text className="text-sm text-gray-600 m-0 mb-2">
+                  Reading stories on this or another device? Open the link below
+                  on that device to link its history to your recommendations.
+                </Text>
+                <Link href={claimUrl} className="text-sm text-orange-600 underline">
+                  Sync a device's reading history
+                </Link>
+              </Section>
+            )}
 
             <Section className="mt-8 text-center">
               <Text className="text-xs text-gray-500">

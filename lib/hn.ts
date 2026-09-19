@@ -9,6 +9,8 @@ export interface HackerNewsStory {
   type?: string;
   text?: string;
   kids?: number[];
+  /** Short excerpt of the linked article (or the story's own text), used in emails. */
+  excerpt?: string;
 }
 
 const HN_BASE_URL = "https://hacker-news.firebaseio.com/v0";

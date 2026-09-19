@@ -4,7 +4,6 @@ import { useState } from "react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { toast } from "sonner";
-import { getReaderId } from "@/lib/reader-id";
 
 export function NewsletterForm() {
   const [email, setEmail] = useState("");
@@ -27,7 +26,7 @@ export function NewsletterForm() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ email, name, readerId: getReaderId() }),
+        body: JSON.stringify({ email, name }),
       });
 
       const data = await response.json();

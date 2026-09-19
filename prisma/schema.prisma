@@ -20,7 +20,7 @@ model Subscriber {
   confirmedAt         DateTime?
   confirmationToken   String?            @unique
   recommendationToken String             @unique @default(uuid())
-  interactions        StoryInteraction[]
+  readers             Reader[]
   emailLogs           EmailLog[]
 }
 
@@ -44,39 +44,57 @@ model EmailLog {
   @@index([providerId])
 }
 
-model User {
-  id            String             @id @default(uuid())
+model Admin {
+  id            String    @id @default(uuid())
   name          String?
-  email         String             @unique
+  email         String    @unique
   password      String
   emailVerified DateTime?
   image         String?
-  role          String             @default("user")
-  createdAt     DateTime           @default(now())
-  updatedAt     DateTime           @updatedAt
+  role          String    @default("user")
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
   sessions      Session[]
-  interactions  StoryInteraction[]
+
+  @@map("User")
 }
 
 model Session {
   id           String   @id @default(uuid())
   sessionToken String   @unique
-  userId       String
+  adminId      String   @map("userId")
   expires      DateTime
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  admin        Admin    @relation(fields: [adminId], references: [id], onDelete: Cascade)
 
-  @@index([userId])
+  @@index([adminId], map: "Session_userId_idx")
+}
+
+/**
+ * A browsing identity (one per device/browser cookie). StoryInteraction rows
+ * belong to a Reader; a person (Subscriber) links to one or more Readers as
+ * devices subscribe or claim via the magic link.
+ * The synthetic reader id `email:<subscriberId>` buckets interactions recorded
+ * from email link clicks.
+ */
+model Reader {
+  id           String             @id
+  subscriberId String?
+  mergedFrom   String?
+  createdAt    DateTime           @default(now())
+  lastSeenAt   DateTime           @default(now())
+  subscriber   Subscriber?        @relation(fields: [subscriberId], references: [id], onDelete: Cascade)
+  interactions StoryInteraction[]
+
+  @@index([subscriberId])
 }
 
 model StoryInteraction {
-  id            String      @id @default(uuid())
-  userId        String?
-  subscriberId  String?
+  id            String   @id @default(uuid())
   readerId      String
   storyId       Int
   type          String
-  weight        Int         @default(1)
-  count         Int         @default(1)
+  weight        Int      @default(1)
+  count         Int      @default(1)
   storyTitle    String
   storyUrl      String?
   storyBy       String?
@@ -84,15 +102,11 @@ model StoryInteraction {
   storyComments Int?
   storyTime     Int?
   domain        String?
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
-  user          User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
-  subscriber    Subscriber? @relation(fields: [subscriberId], references: [id], onDelete: Cascade)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  reader        Reader   @relation(fields: [readerId], references: [id], onDelete: Cascade)
 
   @@unique([readerId, storyId, type])
-  @@unique([subscriberId, storyId, type])
   @@index([readerId, updatedAt])
-  @@index([subscriberId, updatedAt])
-  @@index([userId, updatedAt])
   @@index([storyId])
 }

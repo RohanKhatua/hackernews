@@ -1,11 +1,16 @@
 "use server";
 
 import { render } from "@react-email/components";
-import NewsletterEmail from "@/react-emails/emails/NewsletterEmail";
+import NewsletterEmail, { type NewsletterStory } from "@/react-emails/emails/NewsletterEmail";
 import ConfirmSubscriptionEmail from "@/react-emails/emails/ConfirmSubscriptionEmail";
 import { getAllActiveSubscribers, getSubscriberByEmail } from "./db";
 import { getRecommendedStoriesForEmail } from "@/lib/recommendations";
-import { createUnsubscribeToken } from "@/lib/tokens";
+import { addExcerpts } from "@/lib/excerpts";
+import { fetchTopStories } from "@/lib/server-utils";
+import {
+  createTrackingToken,
+  createUnsubscribeToken,
+} from "@/lib/tokens";
 import { getEmailProvider, EMAIL_BATCH_SIZE, type EmailMessage } from "@/lib/email/provider";
 import {
   claimEmails,
@@ -81,7 +86,7 @@ function broadcastSummary(result: {
   return parts.join(", ");
 }
 
-function toEmailStories(stories: HackerNewsStory[]) {
+function toEmailStories(stories: HackerNewsStory[]): NewsletterStory[] {
   return stories.map((story) => ({
     ...story,
     score: story.score || 0,
@@ -110,31 +115,85 @@ async function mapWithConcurrency<T, R>(
   return results;
 }
 
-export async function formatNewsletter(stories: HackerNewsStory[]) {
-  const html = await render(
-    NewsletterEmail({ stories: toEmailStories(stories), date: longDate(), appUrl: getAppUrl() }),
-  );
-  return html;
+/**
+ * Builds the story links for one email. When `trackingToken` is present
+ * (subscriber emails), article and comment links are wrapped through
+ * /api/track so clicks feed recommendations; test emails to non-subscribers
+ * get plain links.
+ */
+function buildStoryLinks(
+  story: NewsletterStory,
+  appUrl: string,
+  trackingToken: string | null,
+) {
+  const itemUrl = `${appUrl}/item/${story.id}`;
+  const track = (target?: string) => {
+    if (!trackingToken) return target ?? itemUrl;
+    const to = target
+      ? `&to=${encodeURIComponent(Buffer.from(target).toString("base64url"))}`
+      : "";
+    return `${appUrl}/api/track?token=${encodeURIComponent(
+      trackingToken,
+    )}&storyId=${story.id}${to}`;
+  };
+
+  return {
+    href: story.url ? track(story.url) : track(),
+    commentsHref: track(itemUrl),
+  };
 }
 
-export async function formatRecommendedNewsletter(stories: HackerNewsStory[]) {
-  const date = longDate();
-  const html = await render(
+async function renderTop5Html(
+  stories: NewsletterStory[],
+  trackingToken: string | null,
+) {
+  const appUrl = getAppUrl();
+  const linked = stories.map((story) => ({
+    ...story,
+    ...buildStoryLinks(story, appUrl, trackingToken),
+  }));
+
+  return render(
     NewsletterEmail({
-      stories: toEmailStories(stories),
+      stories: linked,
+      date: longDate(),
+      appUrl,
+    }),
+  );
+}
+
+async function renderRecommendedHtml(
+  stories: NewsletterStory[],
+  trackingToken: string | null,
+) {
+  const appUrl = getAppUrl();
+  const date = longDate();
+  const linked = stories.map((story) => ({
+    ...story,
+    ...buildStoryLinks(story, appUrl, trackingToken),
+  }));
+
+  return render(
+    NewsletterEmail({
+      stories: linked,
       date,
-      appUrl: getAppUrl(),
+      appUrl,
       title: "Recommended",
       intro:
         "Here are today's stories ranked from your reads, likes, authors, domains, and story topics:",
       preview: `Hacker News recommendations • ${date}`,
     }),
   );
-  return html;
 }
 
-async function formatConfirmationEmail(name: string | null, confirmUrl: string) {
-  return render(ConfirmSubscriptionEmail({ name: name || undefined, confirmUrl }));
+function formatConfirmationEmail(
+  name: string | null,
+  confirmUrl: string,
+  claimUrl: string | null,
+) {
+  return render(
+    ConfirmSubscriptionEmail({ name: name || undefined, confirmUrl, claimUrl }),
+  );
 }
 
 /**
@@ -295,36 +354,48 @@ async function sendTestEmail(
   }
 }
 
-export async function sendEmail(
-  subject: string,
-  htmlContent: string,
-  recipient?: string,
-  kind: EmailKind = "top5",
-) {
+/** Daily Top 5: same story list for everyone, personalized links per subscriber. */
+export async function sendTop5Email(recipient?: string) {
   try {
+    const subject = `Hacker News Top 5 - ${shortDate()}`;
+    const stories = await fetchTopStories(5);
+
+    if (stories.length === 0) {
+      return { success: false as const, message: "Failed to fetch stories" };
+    }
+
+    // Excerpts depend only on the stories — fetch them once, not per subscriber.
+    const enriched = toEmailStories(await addExcerpts(stories));
+
     if (recipient) {
-      return await sendTestEmail(recipient, subject, htmlContent, kind);
+      const subscriber = await getSubscriberByEmail(recipient);
+      const html = await renderTop5Html(
+        enriched,
+        subscriber ? createTrackingToken(subscriber.id) : null,
+      );
+      return await sendTestEmail(recipient, subject, html, "top5");
     }
 
     const subscribers = await getAllActiveSubscribers();
     if (subscribers.length === 0) {
-      return { success: false, message: "No subscribers found" };
+      return { success: false as const, message: "No subscribers found" };
     }
 
     const result = await broadcast({
-      kind,
+      kind: "top5",
       subject,
       recipients: subscribers,
-      buildHtml: async () => htmlContent,
-      batchKey: `${kind}:${dateKey()}`,
+      batchKey: `top5:${dateKey()}`,
+      buildHtml: async (subscriber) =>
+        renderTop5Html(enriched, createTrackingToken(subscriber.id)),
     });
 
     return {
-      success: true,
+      success: true as const,
       message: broadcastSummary(result),
     };
   } catch (error) {
-    console.error("Error sending email: ", error);
+    console.error("Error sending top 5 email: ", error);
     throw error;
   }
 }
@@ -335,18 +406,17 @@ export async function sendRecommendedEmail(recipient?: string) {
 
     if (recipient) {
       const stories = await getRecommendedStoriesForEmail(recipient, 5);
-      const htmlContent = await formatRecommendedNewsletter(stories);
-      return await sendTestEmail(
-        recipient,
-        subject,
-        htmlContent,
-        "recommended",
+      const subscriber = await getSubscriberByEmail(recipient);
+      const html = await renderRecommendedHtml(
+        toEmailStories(await addExcerpts(stories)),
+        subscriber ? createTrackingToken(subscriber.id) : null,
       );
+      return await sendTestEmail(recipient, subject, html, "recommended");
     }
 
     const subscribers = await getAllActiveSubscribers();
     if (subscribers.length === 0) {
-      return { success: false, message: "No subscribers found" };
+      return { success: false as const, message: "No subscribers found" };
     }
 
     const result = await broadcast({
@@ -359,12 +429,13 @@ export async function sendRecommendedEmail(recipient?: string) {
           subscriber.email,
           5,
         );
-        return formatRecommendedNewsletter(stories);
+        const enriched = toEmailStories(await addExcerpts(stories));
+        return renderRecommendedHtml(enriched, createTrackingToken(subscriber.id));
       },
     });
 
     return {
-      success: true,
+      success: true as const,
       message: broadcastSummary(result),
     };
   } catch (error) {
@@ -381,7 +452,18 @@ export async function sendConfirmationEmail(
   const confirmUrl = `${getAppUrl()}/api/newsletter/confirm?token=${encodeURIComponent(
     confirmationToken,
   )}`;
-  const html = await formatConfirmationEmail(name, confirmUrl);
+
+  // The claim link lets the subscriber bind additional devices' reading
+  // history to their subscription via Subscriber.recommendationToken.
+  const subscriber = await getSubscriberByEmail(email);
+  const claimUrl =
+    subscriber?.recommendationToken
+      ? `${getAppUrl()}/api/newsletter/claim?token=${encodeURIComponent(
+          subscriber.recommendationToken,
+        )}`
+      : null;
+
+  const html = await formatConfirmationEmail(name, confirmUrl, claimUrl);
   const subject = "Confirm your Hacker News newsletter subscription";
 
   const { id } = await getEmailProvider().send({

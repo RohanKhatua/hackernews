@@ -1,6 +1,10 @@
 import NextAuth from "next-auth";
 import { JWT } from "next-auth/jwt";
 
+// These augment NextAuth's own "User"/"Session" vocabulary (the signed-in
+// session identity), which is backed by the Admin Prisma model — not the
+// newsletter Subscriber model.
+
 declare module "next-auth" {
 	interface Session {
 		user: {

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { confirmSubscriber } from "@/lib/db";
+import { confirmSubscriber, linkReaderToSubscriber } from "@/lib/db";
+import { getReaderId } from "@/lib/reader-cookie";
 
 function htmlPage(title: string, body: string, status = 200) {
   return new Response(
@@ -50,6 +51,17 @@ export async function GET(request: Request) {
          <p>You can <a href="/">subscribe again</a> from the home page.</p>`,
         400,
       );
+    }
+
+    // The device that confirms is linked right away; other devices can link
+    // later via the claim link in the welcome email.
+    try {
+      const readerId = await getReaderId();
+      if (readerId) {
+        await linkReaderToSubscriber(readerId, result.subscriber.id);
+      }
+    } catch (error) {
+      console.warn("Could not link reader on confirmation:", error);
     }
 
     return htmlPage(

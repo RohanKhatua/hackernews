@@ -74,3 +74,19 @@ export function verifyUnsubscribeToken(token: string): string | null {
 
   return value.slice(UNSUBSCRIBE_PREFIX.length);
 }
+
+const TRACK_PREFIX = "track:";
+
+/** Signed per-subscriber token carried by tracked email links. */
+export function createTrackingToken(subscriberId: string): string {
+  return createSignedToken(`${TRACK_PREFIX}${subscriberId}`);
+}
+
+export function verifyTrackingToken(token: string): string | null {
+  const value = verifySignedToken(token);
+  if (!value || !value.startsWith(TRACK_PREFIX)) {
+    return null;
+  }
+
+  return value.slice(TRACK_PREFIX.length);
+}

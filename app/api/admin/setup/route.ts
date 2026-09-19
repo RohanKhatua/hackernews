@@ -2,15 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { createAdminUser } from "@/lib/auth-utils";
 import { prisma } from "@/lib/db";
 
-// This route should only work when there are no users in the system
+// This route should only work when there are no admins in the system
 // Use it to create the first admin user, then it will be disabled
 export async function POST(request: NextRequest) {
 	try {
-		// Check if any users exist
-		const userCount = await prisma.user.count();
+		// Check if any admins exist
+		const adminCount = await prisma.admin.count();
 
-		// If users already exist, this route is disabled
-		if (userCount > 0) {
+		// If admins already exist, this route is disabled
+		if (adminCount > 0) {
 			return NextResponse.json(
 				{ success: false, message: "Setup already completed" },
 				{ status: 403 }
@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
 		}
 
 		return NextResponse.json(
-			{ success: true, message: "Admin setup complete", userId: result.userId },
+			{ success: true, message: "Admin setup complete", adminId: result.adminId },
 			{ status: 201 }
 		);
 	} catch (error) {
