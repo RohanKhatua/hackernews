@@ -20,6 +20,8 @@ import {
   type EmailLogFilters,
 } from "@/components/admin/newsletter/email-logs-table";
 import { SubscribersTable } from "@/components/admin/newsletter/subscribers-table";
+import { SubscriberPreferencesTable } from "@/components/admin/newsletter/subscriber-preferences-table";
+import { SubscriberPreferenceDialog } from "@/components/admin/newsletter/subscriber-preference-dialog";
 import type { SendResult } from "@/components/admin/newsletter/types";
 import type {
   EmailLogRow,
@@ -28,6 +30,7 @@ import type {
   NewsletterStatsResponse,
   SubscriberRow,
 } from "@/lib/newsletter-types";
+import type { SubscriberPreferenceSummary, SubscriberPreferencesResponse } from "@/lib/newsletter-preferences-types";
 
 type SendAction = "top5" | "top5-test" | "recommended" | "recommended-test";
 
@@ -44,6 +47,10 @@ export default function AdminNewsletterPage() {
   const [subscribersLoading, setSubscribersLoading] = useState(true);
   const [subscribersError, setSubscribersError] = useState<string | null>(null);
   const [statusUpdating, setStatusUpdating] = useState<string | null>(null);
+
+  const [preferences, setPreferences] = useState<SubscriberPreferenceSummary[]>([]);
+  const [preferencesLoading, setPreferencesLoading] = useState(true);
+  const [selectedPreference, setSelectedPreference] = useState<SubscriberPreferenceSummary | null>(null);
 
   const [logs, setLogs] = useState<EmailLogRow[]>([]);
   const [logsMeta, setLogsMeta] = useState({ total: 0, page: 1, totalPages: 1 });
@@ -89,6 +96,24 @@ export default function AdminNewsletterPage() {
     }
   }, []);
 
+  const fetchPreferences = useCallback(async () => {
+    setPreferencesLoading(true);
+    try {
+      const response = await fetch("/api/admin/newsletter/preferences");
+      if (!response.ok) {
+        throw new Error(`Failed to fetch preferences: ${response.statusText}`);
+      }
+      const data: SubscriberPreferencesResponse = await response.json();
+      if (data.success) {
+        setPreferences(data.preferences || []);
+      }
+    } catch (error) {
+      console.error("Error fetching subscriber preferences:", error);
+    } finally {
+      setPreferencesLoading(false);
+    }
+  }, []);
+
   const fetchLogs = useCallback(
     async (pageToLoad: number, activeFilters: EmailLogFilters) => {
       setLogsLoading(true);
@@ -125,7 +150,8 @@ export default function AdminNewsletterPage() {
   useEffect(() => {
     fetchStats();
     fetchSubscribers();
-  }, [fetchStats, fetchSubscribers]);
+    fetchPreferences();
+  }, [fetchStats, fetchSubscribers, fetchPreferences]);
 
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedQuery(filters.query), 300);
@@ -252,6 +278,7 @@ export default function AdminNewsletterPage() {
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="logs">Email log</TabsTrigger>
           <TabsTrigger value="subscribers">Subscribers</TabsTrigger>
+          <TabsTrigger value="preferences">Preferences</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-6">
@@ -304,7 +331,28 @@ export default function AdminNewsletterPage() {
             onRefresh={fetchSubscribers}
           />
         </TabsContent>
+
+        <TabsContent value="preferences" className="space-y-4">
+          {preferencesLoading ? (
+            <div className="space-y-3">
+              {Array.from({ length: 5 }).map((_, index) => (
+                <Skeleton key={index} className="h-16 w-full rounded-lg" />
+              ))}
+            </div>
+          ) : (
+            <SubscriberPreferencesTable
+              preferences={preferences}
+              onSelect={setSelectedPreference}
+            />
+          )}
+        </TabsContent>
       </Tabs>
+
+      <SubscriberPreferenceDialog
+        open={Boolean(selectedPreference)}
+        onOpenChange={(open) => !open && setSelectedPreference(null)}
+        subscriber={selectedPreference}
+      />
     </div>
   );
 }
