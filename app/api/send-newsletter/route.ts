@@ -1,41 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { sendTop5Email, sendRecommendedEmail } from "@/lib/email-utils";
 import { getAdminUser } from "@/lib/auth-utils";
+import {
+  isNewsletterSendAuthorized,
+} from "@/lib/email/cron-auth";
 import { headers } from "next/headers";
-
-// Vercel Cron authentication. Vercel sends `Authorization: Bearer <CRON_SECRET>`
-// for scheduled invocations when the CRON_SECRET env var is configured.
-function validateCronSecret(headersList: Headers): boolean {
-  const cronSecret = process.env.CRON_SECRET;
-  if (!cronSecret) {
-    return false;
-  }
-
-  const authorization = headersList.get("authorization");
-  return authorization === `Bearer ${cronSecret}`;
-}
-
-// API key authentication function
-function validateApiKey(headersList: Headers): boolean {
-  const apiKey = headersList.get("x-api-key");
-  const validApiKey = process.env.NEWSLETTER_API_KEY;
-
-  // If no API key is configured in environment, this authentication method is disabled
-  if (!validApiKey) {
-    return false;
-  }
-
-  return apiKey === validApiKey;
-}
 
 export async function GET(request: NextRequest) {
   try {
     const headersList = await headers();
     const admin = await getAdminUser();
     const isAuthorized =
-      Boolean(admin) ||
-      validateCronSecret(headersList) ||
-      validateApiKey(headersList);
+      Boolean(admin) || isNewsletterSendAuthorized(headersList);
 
     if (!isAuthorized) {
       return NextResponse.json(

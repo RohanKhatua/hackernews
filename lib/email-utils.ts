@@ -180,7 +180,7 @@ async function renderRecommendedHtml(
       appUrl,
       title: "Recommended",
       intro:
-        "Here are today's stories ranked from your reads, likes, authors, domains, and story topics:",
+        "Here are stories ranked from your reads, likes, authors, domains, and story topics:",
       preview: `Hacker News recommendations • ${date}`,
     }),
   );

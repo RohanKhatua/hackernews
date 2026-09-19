@@ -42,7 +42,7 @@ Hacker News - But Better is a redesigned version of the popular tech news aggreg
 ### Email
 
 - **Resend**: For sending newsletters and notifications (via a provider abstraction in `lib/email/provider.ts`)
-- **Vercel Cron**: Schedules the daily newsletter (`vercel.json`)
+- **Vercel Cron**: Schedules the daily Top 5 (`/api/send-newsletter`) and the weekly Recommended digest (`/api/send-recommended`, Mondays)
 - **Double opt-in**: New subscribers confirm via email before receiving the newsletter
 - **Webhooks**: Delivery/bounce/complaint events handled at `/api/webhooks/resend`
 
