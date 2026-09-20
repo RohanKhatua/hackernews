@@ -2,11 +2,15 @@ import type { Keyword } from "@prisma/client";
 
 export const SITE_NAME = "Hacker News - But Better";
 export const SITE_DESCRIPTION =
-  "A modern reader for the best of tech: top stories and discussions from Hacker News, Lobsters, Reddit, DEV Community and leading tech publications.";
+  "A modern reader for the best of tech: top stories and discussions from Hacker News, Lobsters, DEV Community and leading tech publications.";
 
 export function getSiteUrl(): string {
-  const raw = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
-  return raw.replace(/\/$/, "");
+  const raw = (process.env.NEXT_PUBLIC_APP_URL ?? "").trim();
+  // Env values are often configured as a bare hostname (e.g. "example.com");
+  // normalize so `new URL(getSiteUrl())` never throws.
+  const withProtocol =
+    raw && !/^https?:\/\//i.test(raw) ? `https://${raw}` : raw;
+  return (withProtocol || "http://localhost:3000").replace(/\/+$/, "");
 }
 
 export function absoluteUrl(path = "/"): string {

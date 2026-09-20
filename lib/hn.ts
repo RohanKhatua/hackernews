@@ -15,6 +15,29 @@ export interface HackerNewsStory {
 
 const HN_BASE_URL = "https://hacker-news.firebaseio.com/v0";
 
+/** Max simultaneous item fetches; unbounded parallelism can exhaust file descriptors (EMFILE). */
+const FETCH_CONCURRENCY = 10;
+
+async function mapWithConcurrency<T, R>(
+  items: T[],
+  limit: number,
+  fn: (item: T) => Promise<R>,
+): Promise<R[]> {
+  const results: R[] = new Array(items.length);
+  let cursor = 0;
+
+  async function worker() {
+    while (cursor < items.length) {
+      const index = cursor++;
+      results[index] = await fn(items[index]);
+    }
+  }
+
+  const workers = Array.from({ length: Math.min(limit, items.length) }, worker);
+  await Promise.all(workers);
+  return results;
+}
+
 export async function fetchStoryIds(
   type: "top" | "new" | "best" | "ask" | "show" | "job" = "top",
 ) {
@@ -61,7 +84,15 @@ export async function fetchStory(id: number) {
 }
 
 export async function fetchStories(ids: number[]) {
-  const stories = await Promise.all(ids.map((id) => fetchStory(id)));
+  // Dedupe and fetch with bounded concurrency: firing every request at once
+  // (e.g. the full topstories list during a newsletter broadcast) opens too
+  // many sockets and fails with EMFILE ("too many open files").
+  const uniqueIds = Array.from(new Set(ids));
+  const stories = await mapWithConcurrency(
+    uniqueIds,
+    FETCH_CONCURRENCY,
+    (id) => fetchStory(id),
+  );
   return stories.filter((story): story is HackerNewsStory =>
     Boolean(story?.id && story.title),
   );

@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma, linkReaderToSubscriber } from "@/lib/db";
 import { getReaderId } from "@/lib/reader-cookie";
+import { getSiteUrl } from "@/lib/seo";
 
 const REDIRECT_BASE = "/recommended";
 
 function redirect(status: "claimed" | "invalid" | "no-cookie") {
   return NextResponse.redirect(
-    new URL(`${REDIRECT_BASE}?claim=${status}`, process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"),
+    new URL(`${REDIRECT_BASE}?claim=${status}`, getSiteUrl()),
     302,
   );
 }

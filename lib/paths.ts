@@ -44,7 +44,7 @@ export const CATEGORY_LABELS: Record<NewsCategory, string> = {
 };
 
 export const CATEGORY_DESCRIPTIONS: Record<NewsCategory, string> = {
-  top: "The top stories and discussions in tech right now, from Hacker News, Lobsters, Reddit, DEV Community and leading publications.",
+  top: "The top stories and discussions in tech right now, from Hacker News, Lobsters, DEV Community and leading publications.",
   new: "The newest stories and discussions in tech, updated continuously across every source we track.",
   best: "The highest-scoring tech stories and discussions of all time on Hacker News and beyond.",
   ask: "Ask HN: questions and answers from the Hacker News community on programming, startups and technology.",

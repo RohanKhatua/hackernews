@@ -1,7 +1,6 @@
 import { createDevToProvider } from "@/lib/sources/devto";
 import { createHackerNewsProvider } from "@/lib/sources/hackernews";
 import { createLobstersProvider } from "@/lib/sources/lobsters";
-import { createRedditProvider } from "@/lib/sources/reddit";
 import { createRssProvider } from "@/lib/sources/rss";
 import type { NewsProvider } from "@/lib/sources/types";
 
@@ -13,9 +12,6 @@ import type { NewsProvider } from "@/lib/sources/types";
 export const providers: NewsProvider[] = [
   createHackerNewsProvider(),
   createLobstersProvider(),
-  createRedditProvider({
-    subreddits: ["programming", "webdev", "technology", "javascript"],
-  }),
   createDevToProvider(),
   createRssProvider({
     id: "theverge",

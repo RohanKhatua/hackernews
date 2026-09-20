@@ -38,7 +38,7 @@ export async function generateMetadata({
   const term = topic.keyword.term;
   const title = `${term} — news & discussions`;
   const description = truncateDescription(
-    `${topic.keyword.articleCount} stories and discussions about ${term} from Hacker News, Lobsters, Reddit, DEV Community and leading tech publications.`,
+    `${topic.keyword.articleCount} stories and discussions about ${term} from Hacker News, Lobsters, DEV Community and leading tech publications.`,
   );
   const path = `/topics/${topic.keyword.slug}`;
 
