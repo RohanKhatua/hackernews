@@ -2,9 +2,9 @@ import { cookies } from "next/headers";
 
 /**
  * Server-side reader identity. Middleware issues an httpOnly `hn_reader`
- * cookie on first request and forwards it downstream, so route handlers and
- * server components read identity from the cookie — never from a
- * client-supplied payload.
+ * cookie on the first API request and forwards it downstream, so route
+ * handlers read identity from the cookie — never from a client-supplied
+ * payload. Pages never read it, which keeps page responses cacheable.
  */
 export const READER_COOKIE = "hn_reader";
 

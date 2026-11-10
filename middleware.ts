@@ -2,9 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { READER_COOKIE, READER_COOKIE_MAX_AGE } from "@/lib/reader-cookie";
 
 /**
- * Issues the anonymous reader identity cookie and makes it visible to
- * downstream route handlers/server components on the same request (middleware
- * Set-Cookie alone would only reach the browser, one round-trip late).
+ * Issues the anonymous reader identity cookie and makes it visible to the
+ * downstream route handler on the same request (middleware Set-Cookie alone
+ * would only reach the browser, one round-trip late).
  */
 export function middleware(request: NextRequest) {
   const existing = request.cookies.get(READER_COOKIE)?.value;
@@ -37,5 +37,12 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|icon).*)"],
+  // Only the route handlers that read the reader identity need this cookie.
+  // Running on every page view also forces a Set-Cookie response and defeats
+  // CDN caching for pages, so keep the match scoped to those handlers.
+  matcher: [
+    "/api/interactions",
+    "/api/recommendations",
+    "/api/newsletter/:path*",
+  ],
 };

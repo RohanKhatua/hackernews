@@ -56,7 +56,10 @@ async function readHead(url: string): Promise<string> {
     response = await fetch(url, {
       redirect: "follow",
       signal: controller.signal,
-      cache: "no-store",
+      // Excerpts are derived from the article's meta tags, which change rarely.
+      // Caching keeps story/item renders from re-downloading an external page
+      // (up to 128 KB) on every invocation.
+      next: { revalidate: 86_400 },
       headers: {
         "user-agent":
           "Mozilla/5.0 (compatible; HackerNewsNewsletter/1.0; +https://news.ycombinator.com)",
