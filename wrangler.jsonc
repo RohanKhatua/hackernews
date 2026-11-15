@@ -17,6 +17,9 @@
       "service": "hackernews"
     }
   ],
+  "routes": [
+    { "pattern": "hn.rohankhatua.dev", "custom_domain": true }
+  ],
   "hyperdrive": [
     {
       "binding": "HYPERDRIVE",

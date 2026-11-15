@@ -15,12 +15,11 @@
 
 const JOBS = {
   "*/30 * * * *": "/api/cron/ingest",
-  // Moving the newsletter crons off Vercel? Uncomment these, add the matching
-  // expressions to wrangler.toml, and remove them from vercel.json so each job
-  // runs in exactly one place.
-  // "30 1 * * *": "/api/send-newsletter",
-  // "30 2 * * 1": "/api/send-recommended",
+  "30 1 * * *": "/api/send-newsletter",
+  "30 2 * * 1": "/api/send-recommended",
 };
+// Note: send-newsletter runs daily at 01:30 UTC and send-recommended weekly
+// (Mondays 02:30 UTC) — same schedules vercel.json used to carry.
 
 async function trigger(env, path) {
   const appUrl = env.APP_URL && env.APP_URL.replace(/\/$/, "");
