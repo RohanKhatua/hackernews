@@ -26,12 +26,6 @@
       "id": "a209ff419d4b4aee9090bbafc8f9f8d2"
     }
   ],
-  "r2_buckets": [
-    {
-      "binding": "NEXT_INC_CACHE_R2_BUCKET",
-      "bucket_name": "hackernews-opennext-cache"
-    }
-  ],
   "observability": {
     "enabled": true
   }
