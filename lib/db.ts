@@ -1,6 +1,7 @@
 import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
+import { cache } from "react";
 import type { Subscriber } from "@prisma/client";
 import crypto from "crypto";
 
@@ -12,43 +13,83 @@ export type ConfirmSubscriberResult =
   | { success: true; subscriber: Subscriber }
   | { success: false; error: string };
 
-const globalForPrisma = global as unknown as { prisma: PrismaClient };
-
 /**
- * Builds a Prisma Client for the current runtime.
+ * Builds a Prisma Client for the current request.
  *
- * On Cloudflare Workers, the `HYPERDRIVE` binding provides a pooled Postgres
- * connection string, and the query must go through the pg driver adapter
- * (the Rust query engine cannot run in a Worker). Everywhere else — `next
- * dev`, `next build`, Vercel — the default engine path is used unchanged.
+ * Cloudflare Workers do not allow a pooled connection created in one request
+ * context to be reused in another — a global client "will cause subsequent
+ * requests to fail" (opennext.js.org/cloudflare/howtos/db). So the client is
+ * created per request: React `cache()` dedupes it within one request, and
+ * `maxUses: 1` makes every pooled pg socket single-use.
+ *
+ * - `getDb` uses the sync context (request handlers / server components).
+ * - `getDbAsync` uses the async context (ISR/SSG revalidation, where there is
+ *   no incoming request).
+ * - Outside Workers (`next dev`, `next build`, CI) both fall back to a plain
+ *   Node singleton with the same pool hygiene.
+ *
+ * The exported `prisma` is a Proxy that delegates to `getDb()` per property
+ * access, so the ~16 existing `prisma.<model>` call sites stay untouched.
  */
-function newPrismaClient(): PrismaClient {
-  try {
-    const { env } = getCloudflareContext();
-    const connection =
-      env.HYPERDRIVE?.connectionString ?? process.env.DATABASE_URL;
-    if (connection) {
-      return new PrismaClient({
-        log: ["info", "warn", "error"],
-        adapter: new PrismaPg({ connectionString: connection }),
-      });
-    }
-  } catch {
-    // Bindings unavailable outside the Workers runtime; fall through.
-  }
+
+const POOL_CONFIG = {
+  // Workers pool hygiene: stale sockets must fail fast, never wedge the
+  // isolate ("Worker hung").
+  max: 3,
+  maxUses: 1,
+  connectionTimeoutMillis: 5_000,
+  idleTimeoutMillis: 10_000,
+  query_timeout: 30_000,
+  statement_timeout: 30_000,
+} as const;
+
+function newClient(connectionString: string): PrismaClient {
   return new PrismaClient({
-    log: ["query", "info", "warn", "error"],
+    log: ["info", "warn", "error"],
+    adapter: new PrismaPg({ connectionString, ...POOL_CONFIG }),
   });
 }
 
-export const prisma =
-  globalForPrisma.prisma || newPrismaClient();
+let nodeDevClient: PrismaClient | null = null;
+
+function hyperdriveConnectionString(): string | null {
+  try {
+    const { env } = getCloudflareContext();
+    const fromBinding = (
+      env as { HYPERDRIVE?: { connectionString?: string } }
+    ).HYPERDRIVE?.connectionString;
+    return fromBinding ?? process.env.DATABASE_URL ?? null;
+  } catch {
+    // No request context (ISR revalidation) or plain Node runtime.
+    return process.env.DATABASE_URL ?? null;
+  }
+}
+
+export const getDb = cache((): PrismaClient => {
+  const connectionString = hyperdriveConnectionString();
+  if (connectionString) return newClient(connectionString);
+  nodeDevClient ??= newClient(process.env.DATABASE_URL ?? "");
+  return nodeDevClient;
+});
+
+export async function getDbAsync(): Promise<PrismaClient> {
+  const connectionString = hyperdriveConnectionString();
+  if (connectionString) return newClient(connectionString);
+  nodeDevClient ??= newClient(process.env.DATABASE_URL ?? "");
+  return nodeDevClient;
+}
+
+export const prisma = new Proxy({} as PrismaClient, {
+  get(_target, prop) {
+    const client = getDb();
+    const value = Reflect.get(client as unknown as object, prop, client);
+    return typeof value === "function" ? value.bind(client) : value;
+  },
+});
 
 function getErrorMessage(error: unknown, fallback: string) {
   return error instanceof Error ? error.message : fallback;
 }
-
-if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
 
 function normalizeEmail(email: string) {
   return email.trim().toLowerCase();
