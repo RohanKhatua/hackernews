@@ -1,6 +1,8 @@
 import { prisma } from "@/lib/db";
 import CredentialsProvider from "next-auth/providers/credentials";
-import bcrypt from "bcrypt";
+// bcryptjs is a pure-JS drop-in for bcrypt — the native binary can't load in
+// Cloudflare Workers. Hashes are bcrypt-format and fully interchangeable.
+import bcrypt from "bcryptjs";
 import { NextAuthOptions } from "next-auth";
 
 // The Admin model backs NextAuth's session "user" (NextAuth's own vocabulary).

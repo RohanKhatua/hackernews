@@ -5,7 +5,6 @@ import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { NextAuthProvider } from "@/components/auth-provider";
 import { Toaster } from "@/components/ui/sonner";
-import { Analytics } from "@vercel/analytics/next";
 import { JsonLd } from "@/components/json-ld";
 import {
   SITE_DESCRIPTION,
@@ -98,7 +97,6 @@ export default function RootLayout({
 						enableSystem
 						disableTransitionOnChange>
 						{children}
-						<Analytics />
 						<Toaster />
 					</ThemeProvider>
 				</NextAuthProvider>

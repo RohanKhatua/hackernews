@@ -4,7 +4,9 @@ import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth-options";
 import { prisma } from "@/lib/db";
-import bcrypt from "bcrypt";
+// bcryptjs is a pure-JS drop-in for bcrypt — the native binary can't load in
+// Cloudflare Workers. Hashes are bcrypt-format and fully interchangeable.
+import bcrypt from "bcryptjs";
 import { headers } from "next/headers";
 
 export async function getSession() {

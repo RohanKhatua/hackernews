@@ -1,4 +1,6 @@
 import { PrismaClient } from "@prisma/client";
+import { PrismaPg } from "@prisma/adapter-pg";
+import { getCloudflareContext } from "@opennextjs/cloudflare";
 import type { Subscriber } from "@prisma/client";
 import crypto from "crypto";
 
@@ -10,18 +12,41 @@ export type ConfirmSubscriberResult =
   | { success: true; subscriber: Subscriber }
   | { success: false; error: string };
 
-// Create a single instance of Prisma Client
 const globalForPrisma = global as unknown as { prisma: PrismaClient };
+
+/**
+ * Builds a Prisma Client for the current runtime.
+ *
+ * On Cloudflare Workers, the `HYPERDRIVE` binding provides a pooled Postgres
+ * connection string, and the query must go through the pg driver adapter
+ * (the Rust query engine cannot run in a Worker). Everywhere else — `next
+ * dev`, `next build`, Vercel — the default engine path is used unchanged.
+ */
+function newPrismaClient(): PrismaClient {
+  try {
+    const { env } = getCloudflareContext();
+    const connection =
+      env.HYPERDRIVE?.connectionString ?? process.env.DATABASE_URL;
+    if (connection) {
+      return new PrismaClient({
+        log: ["info", "warn", "error"],
+        adapter: new PrismaPg({ connectionString: connection }),
+      });
+    }
+  } catch {
+    // Bindings unavailable outside the Workers runtime; fall through.
+  }
+  return new PrismaClient({
+    log: ["query", "info", "warn", "error"],
+  });
+}
+
+export const prisma =
+  globalForPrisma.prisma || newPrismaClient();
 
 function getErrorMessage(error: unknown, fallback: string) {
   return error instanceof Error ? error.message : fallback;
 }
-
-export const prisma =
-  globalForPrisma.prisma ||
-  new PrismaClient({
-    log: ["query", "info", "warn", "error"],
-  });
 
 if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
 
